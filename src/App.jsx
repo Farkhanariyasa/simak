@@ -161,6 +161,7 @@ export default function App() {
   const [partner, setPartner] = useState(null);
   const [room, setRoom] = useState(null);
   const [submissions, setSubmissions] = useState([]);
+  const [dailyRatings, setDailyRatings] = useState([]);
 
   const [currentView, setCurrentView] = useState('journal');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -211,6 +212,7 @@ export default function App() {
         setRoom(null);
         setPartner(null);
         setSubmissions([]);
+        setDailyRatings([]);
       }
       setAuthLoading(false);
     });
@@ -319,29 +321,34 @@ export default function App() {
       setRoom(null);
       setPartner(null);
       setSubmissions([]);
+      setDailyRatings([]);
       return;
     }
+
+    let partnerUnsub = null;
 
     // Mendengarkan Ruangan
     const roomUnsub = onSnapshot(
       doc(db, getPublicPath('rooms'), profile.roomId),
-      async (roomSnap) => {
+      (roomSnap) => {
         if (roomSnap.exists()) {
           const roomData = { id: roomSnap.id, ...roomSnap.data() };
           setRoom(roomData);
 
           // Cari ID pasangan
           const partnerId = roomData.userIds.find(id => id !== profile.id);
+          
+          if (partnerUnsub) partnerUnsub();
+          
           if (partnerId) {
             // Ambil profil pasangan dengan listener yang solid
-            const partnerUnsub = onSnapshot(
+            partnerUnsub = onSnapshot(
               doc(db, getPublicPath('users'), partnerId),
               (pSnap) => {
                 if (pSnap.exists()) setPartner({ id: pSnap.id, ...pSnap.data() });
               },
               (err) => console.error("Error mendengarkan partner", err)
             );
-            return () => partnerUnsub();
           } else {
             setPartner(null);
           }
@@ -349,12 +356,10 @@ export default function App() {
       },
       (err) => {
         console.error("Error mendengarkan ruangan", err);
-        // Jika offline, room mungkin masih ada di cache
       }
     );
 
     // Mendengarkan entri jurnal (submissions) khusus untuk ruangan ini
-    // Menggunakan metadata changes agar UI responsif terhadap status sinkronisasi
     const q = query(
       collection(db, getPublicPath('submissions')),
       where("roomId", "==", profile.roomId),
@@ -367,10 +372,6 @@ export default function App() {
       (snap) => {
         const roomSubs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setSubmissions(roomSubs);
-
-        if (snap.metadata.fromCache) {
-          console.log("Data dimuat dari cache (offline)");
-        }
       },
       (err) => {
         console.error("Error mendengarkan entri jurnal", err);
@@ -383,9 +384,26 @@ export default function App() {
       }
     );
 
+    // Mendengarkan rating harian untuk seluruh ruangan
+    const ratingsQ = query(
+      collection(db, getPublicPath('daily_ratings')),
+      where("roomId", "==", profile.roomId)
+    );
+
+    const ratingsUnsub = onSnapshot(
+      ratingsQ,
+      (snap) => {
+        const roomRatings = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setDailyRatings(roomRatings);
+      },
+      (err) => console.error("Error mendengarkan rating harian", err)
+    );
+
     return () => {
       roomUnsub();
       subsUnsub();
+      ratingsUnsub();
+      if (partnerUnsub) partnerUnsub();
     };
   }, [profile?.roomId, profile?.id]);
 
@@ -530,8 +548,8 @@ export default function App() {
               />
             ) : (
               <>
-                {currentView === 'journal' && <JournalView profile={profile} partner={partner} submissions={submissions} />}
-                {currentView === 'write' && <WriteView profile={profile} partner={partner} submissions={submissions} />}
+                {currentView === 'journal' && <JournalView profile={profile} partner={partner} submissions={submissions} dailyRatings={dailyRatings} />}
+                {currentView === 'write' && <WriteView profile={profile} partner={partner} submissions={submissions} dailyRatings={dailyRatings} />}
                 {currentView === 'settings' && <SettingsView profile={profile} partner={partner} />}
               </>
             )}
@@ -668,7 +686,7 @@ const NotPairedView = ({ onGoToSettings }) => (
 );
 
 // --- 1. Tampilan Jurnal ---
-const JournalView = ({ profile, partner, submissions }) => {
+const JournalView = ({ profile, partner, submissions, dailyRatings }) => {
   const [activeTab, setActiveTab] = useState('jurnalku'); // State untuk tab
   const [selectedDate, setSelectedDate] = useState(getTodayString()); // State untuk filter tanggal
 
@@ -725,12 +743,13 @@ const JournalView = ({ profile, partner, submissions }) => {
         profile={profile}
         partner={partner}
         activeTab={activeTab}
+        dailyRatings={dailyRatings}
       />
     </div>
   );
 };
 
-const DailySection = ({ date, subs, profile, partner, activeTab }) => {
+const DailySection = ({ date, subs, profile, partner, activeTab, dailyRatings }) => {
   const isToday = date === getTodayString();
   const revealed = !isToday || isAfter8PM();
 
@@ -742,7 +761,7 @@ const DailySection = ({ date, subs, profile, partner, activeTab }) => {
       <div className="flex flex-col space-y-10">
         {activeTab === 'jurnalmu' && (
           partner ? (
-            <UserJournalFeed user={partner} subs={partnerSubs} isMe={false} isHidden={!revealed} />
+            <UserJournalFeed user={partner} subs={partnerSubs} isMe={false} isHidden={!revealed} date={date} dailyRatings={dailyRatings} />
           ) : (
             <div className="bg-slate-50 dark:bg-slate-800 rounded-[32px] p-8 border border-slate-200 dark:border-slate-700 text-center transition-colors">
               <UserPlus className="w-8 h-8 text-slate-400 dark:text-slate-500 mx-auto mb-3" />
@@ -752,14 +771,47 @@ const DailySection = ({ date, subs, profile, partner, activeTab }) => {
         )}
 
         {activeTab === 'jurnalku' && (
-          <UserJournalFeed user={profile} subs={mySubs} isMe={true} isHidden={false} />
+          <UserJournalFeed user={profile} subs={mySubs} isMe={true} isHidden={false} date={date} dailyRatings={dailyRatings} />
         )}
       </div>
     </div>
   );
 };
 
-const UserJournalFeed = ({ user, subs, isMe, isHidden }) => {
+const UserJournalFeed = ({ user, subs, isMe, isHidden, date, dailyRatings }) => {
+  const [showRatingPicker, setShowRatingPicker] = useState(false);
+  const ratingDoc = dailyRatings.find(r => r.userId === user?.id && r.date === date);
+  const userRating = ratingDoc?.rating;
+
+
+  const handleReactRating = async (emoji) => {
+    const auth = getAuth();
+    if (!auth.currentUser || !ratingDoc) return;
+    const currentUserId = auth.currentUser.uid;
+    const currentReactions = ratingDoc.reactions || {};
+
+    const newReactions = { ...currentReactions };
+    const userReactions = Array.isArray(newReactions[currentUserId]) ? [...newReactions[currentUserId]] :
+      (typeof newReactions[currentUserId] === 'string' ? [newReactions[currentUserId]] : []);
+
+    if (userReactions.includes(emoji)) {
+      newReactions[currentUserId] = userReactions.filter(e => e !== emoji);
+    } else {
+      // Sesuai request: "cuma 1 emot kali ya biar ga penuh", kita batasi 1 emot per user
+      newReactions[currentUserId] = [emoji];
+    }
+
+    try {
+      const db = getFirestore();
+      await updateDoc(doc(db, getPublicPath('daily_ratings'), ratingDoc.id), {
+        reactions: newReactions
+      });
+    } catch (e) {
+      console.error("Gagal memberikan reaksi pada rating", e);
+    }
+  };
+
+
   if (isHidden) {
     return (
       <div className="bg-slate-100/50 dark:bg-slate-800/50 rounded-[32px] p-8 border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center min-h-[200px] text-center transition-colors">
@@ -778,6 +830,62 @@ const UserJournalFeed = ({ user, subs, isMe, isHidden }) => {
           <h4 className="text-xl font-bold text-slate-800 dark:text-slate-100">{user?.displayName}</h4>
           <p className="text-sm font-semibold text-slate-600 dark:text-slate-400 mt-1">{isMe ? 'Jurnalku' : 'Jurnalmu'}</p>
         </div>
+        {userRating && (
+          <div className="ml-auto flex items-center space-x-3">
+            {/* Reaksi Rating */}
+            <div className="flex flex-wrap gap-1 order-1">
+              {ratingDoc.reactions && Object.keys(ratingDoc.reactions).length > 0 && (
+                <div className="flex -space-x-1">
+                  {Object.values(ratingDoc.reactions).flat().map((emoji, idx) => (
+                    <span key={idx} className="inline-flex items-center justify-center w-7 h-7 text-[12px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full shadow-sm select-none animate-in zoom-in duration-300">
+                      {emoji}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Tombol Reaksi Rating */}
+            <div className="relative order-2">
+              <button
+                onClick={() => setShowRatingPicker(!showRatingPicker)}
+                className={`w-8 h-8 flex items-center justify-center rounded-full transition-all duration-200 ${showRatingPicker ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:text-indigo-500 hover:bg-slate-50 dark:hover:bg-indigo-900/30'}`}
+                title="Bereaksi pada rating"
+              >
+                <Smile className="w-5 h-5" />
+              </button>
+
+              {showRatingPicker && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowRatingPicker(false)}></div>
+                  <div className="flex flex-wrap gap-1 bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 absolute top-10 right-0 z-20 shadow-xl w-[180px] animate-in zoom-in duration-200 origin-top-right">
+                    {EMOJI_OPTIONS.slice(0, 8).map(emoji => ( // Ambil 8 saja biar simpel
+                      <button
+                        key={emoji}
+                        onClick={() => {
+                          handleReactRating(emoji);
+                          setShowRatingPicker(false);
+                        }}
+                        className="w-8 h-8 flex items-center justify-center text-base rounded-full hover:bg-slate-50 dark:hover:bg-slate-700 transition-all"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Badge Rating */}
+            <div className="flex flex-col items-center justify-center bg-indigo-50 dark:bg-indigo-900/40 px-5 py-2.5 rounded-2xl border border-indigo-100 dark:border-indigo-800 transition-colors order-3">
+              <span className="text-[10px] uppercase font-bold text-indigo-500 dark:text-indigo-400 tracking-widest mb-0.5">Rating</span>
+              <div className="flex items-baseline">
+                <span className="text-2xl font-black text-indigo-700 dark:text-indigo-300 leading-none">{userRating}</span>
+                <span className="text-xs font-bold text-indigo-400 dark:text-indigo-500 ml-1">/10</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="pl-2 md:pl-4">
@@ -901,7 +1009,7 @@ const FeedItem = ({ sub, user, isMe, isLast }) => {
 
 
 // --- 2. Tampilan Tulis ---
-const WriteView = ({ profile, submissions }) => {
+const WriteView = ({ profile, submissions, dailyRatings }) => {
   const [content, setContent] = useState("");
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -910,6 +1018,22 @@ const WriteView = ({ profile, submissions }) => {
   const isLocked = isAfter8PM();
   const today = getTodayString();
   const myTodaySubs = submissions.filter(s => s.userId === profile.id && s.date === today);
+  const myRating = dailyRatings.find(r => r.userId === profile.id && r.date === today)?.rating;
+
+  const handleSaveRating = async (val) => {
+    try {
+      const ratingId = `${profile.id}_${today}`;
+      await setDoc(doc(db, getPublicPath('daily_ratings'), ratingId), {
+        userId: profile.id,
+        date: today,
+        rating: val,
+        roomId: profile.roomId,
+        createdAt: Date.now()
+      }, { merge: true });
+    } catch (e) {
+      console.error("Gagal menyimpan rating harian", e);
+    }
+  };
 
   const handleImageSelect = (e) => {
     const file = e.target.files[0];
@@ -976,6 +1100,8 @@ const WriteView = ({ profile, submissions }) => {
   return (
     <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in duration-300 pb-10">
 
+
+
       {/* Area Menulis */}
       <div className="bg-white dark:bg-slate-800 rounded-[24px] shadow-sm border border-slate-100 dark:border-slate-700 p-6 transition-colors duration-300">
         <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white mb-6 tracking-tight">Apa cerita hari ini?</h2>
@@ -996,6 +1122,26 @@ const WriteView = ({ profile, submissions }) => {
               value={content}
               onChange={(e) => setContent(e.target.value)}
             />
+
+            {/* Rating Hari Ini */}
+            <div className="mt-6 mb-2">
+              <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3 ml-1">Rating Hari Ini</p>
+              <div className="flex flex-wrap gap-2">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                  <button
+                    key={num}
+                    onClick={() => handleSaveRating(num)}
+                    className={`w-9 h-9 md:w-10 md:h-10 rounded-full font-bold text-xs md:text-sm border-2 transition-all flex items-center justify-center ${
+                      myRating === num
+                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md scale-105'
+                        : 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-indigo-200 dark:hover:border-indigo-800'
+                    }`}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {imagePreview && (
               <div className="relative mt-4 inline-block">
