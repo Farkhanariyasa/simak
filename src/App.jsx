@@ -59,7 +59,37 @@ const appId = typeof __app_id !== 'undefined' ? __app_id : 'simak-default-app';
 const config = getFirebaseConfig();
 const isConfigValid = config && config.apiKey && config.projectId;
 
-const DEFAULT_AVATAR = (id) => `https://api.dicebear.com/9.x/notionists/svg?seed=${id || 'simak'}`;
+const DEFAULT_AVATAR = (id) => `https://api.dicebear.com/9.x/notionists-neutral/svg?seed=${id || 'simak'}`;
+const NEUTRAL_AVATARS = [
+  'https://api.dicebear.com/9.x/notionists-neutral/svg?seed=Kingston&backgroundColor=b6e3f4',
+  'https://api.dicebear.com/9.x/notionists-neutral/svg?seed=Willow&backgroundColor=c0aede',
+  'https://api.dicebear.com/9.x/notionists-neutral/svg?seed=River&backgroundColor=d1d4f9',
+  'https://api.dicebear.com/9.x/notionists-neutral/svg?seed=Sage&backgroundColor=ffd5dc',
+  'https://api.dicebear.com/9.x/notionists-neutral/svg?seed=Taylor&backgroundColor=ffdfbf',
+  'https://api.dicebear.com/9.x/notionists-neutral/svg?seed=Jordan&backgroundColor=d1d4f9',
+  'https://api.dicebear.com/9.x/notionists-neutral/svg?seed=Alex&backgroundColor=c0aede',
+  'https://api.dicebear.com/9.x/notionists-neutral/svg?seed=Charlie&backgroundColor=ffd5dc'
+];
+const THUMBS_AVATARS = [
+  'https://api.dicebear.com/9.x/thumbs/svg?seed=Destiny&backgroundColor=b6e3f4',
+  'https://api.dicebear.com/9.x/thumbs/svg?seed=Princess&backgroundColor=c0aede',
+  'https://api.dicebear.com/9.x/thumbs/svg?seed=Abby&backgroundColor=d1d4f9',
+  'https://api.dicebear.com/9.x/thumbs/svg?seed=Precious&backgroundColor=ffd5dc',
+  'https://api.dicebear.com/9.x/thumbs/svg?seed=Mimi&backgroundColor=ffdfbf',
+  'https://api.dicebear.com/9.x/thumbs/svg?seed=Sasha&backgroundColor=d1d4f9',
+  'https://api.dicebear.com/9.x/thumbs/svg?seed=Zoe&backgroundColor=c0aede',
+  'https://api.dicebear.com/9.x/thumbs/svg?seed=Bella&backgroundColor=ffd5dc'
+];
+const ADVENTURER_AVATARS = [
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Jude&backgroundColor=b6e3f4',
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Mia&backgroundColor=c0aede',
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Finn&backgroundColor=d1d4f9',
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Lucy&backgroundColor=ffd5dc',
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Leo&backgroundColor=ffdfbf',
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Lily&backgroundColor=d1d4f9',
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Max&backgroundColor=c0aede',
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Ruby&backgroundColor=ffd5dc'
+];
 const EMOJI_OPTIONS = ['❤️', '🥰', '✨', '🙌', '🔥', '😄', '😮', '😢', '😭', '😔', '🤯', '😴', '👍', '🙏', '🎉', '😡']
 
 let app, auth, db;
@@ -95,8 +125,7 @@ const getTodayString = () => {
 };
 
 const isAfter8PM = () => {
-  // return new Date().getHours() >= 20;
-  return true; // Bypass untuk testing UI/UX: Selalu dianggap sudah lewat jam 8 malam
+  return new Date().getHours() >= 20;
 };
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
@@ -136,9 +165,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState('journal');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const isSoloMode = profile?.roomId?.startsWith('solo_');
-  const [isProcessingSolo, setIsProcessingSolo] = useState(false);
-  const [soloError, setSoloError] = useState("");
+
 
   // Status Koneksi
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
@@ -375,30 +402,7 @@ export default function App() {
     await signOut(auth);
   };
 
-  const handleSoloMode = async () => {
-    if (!profile) {
-      setSoloError("Profil belum siap, tunggu sebentar.");
-      return;
-    }
-    setIsProcessingSolo(true);
-    setSoloError("");
-    const newRoomId = `solo_${profile.id}_${Date.now()}`;
-    try {
-      await setDoc(doc(db, getPublicPath('rooms'), newRoomId), {
-        id: newRoomId,
-        userIds: [profile.id],
-        createdAt: Date.now()
-      });
-      // Menggunakan merge: true untuk menghindari error jika doc belum tersinkronisasi 
-      await setDoc(doc(db, getPublicPath('users'), profile.id), { roomId: newRoomId, inviteCode: null }, { merge: true });
-      setCurrentView('write'); // Langsung arahkan ke halaman menulis
-    } catch (error) {
-      console.error("Gagal masuk mode solo:", error);
-      setSoloError("Gagal memuat mode solo.");
-    } finally {
-      setIsProcessingSolo(false);
-    }
-  };
+
 
   if (authLoading) {
     return (
@@ -523,15 +527,12 @@ export default function App() {
             {!profile?.roomId && currentView !== 'settings' ? (
               <NotPairedView
                 onGoToSettings={() => setCurrentView('settings')}
-                onSoloMode={handleSoloMode}
-                isProcessingSolo={isProcessingSolo}
-                soloError={soloError}
               />
             ) : (
               <>
                 {currentView === 'journal' && <JournalView profile={profile} partner={partner} submissions={submissions} />}
-                {currentView === 'write' && <WriteView profile={profile} partner={partner} submissions={submissions} isSoloMode={isSoloMode} />}
-                {currentView === 'settings' && <SettingsView profile={profile} partner={partner} onSoloMode={handleSoloMode} isProcessingSolo={isProcessingSolo} />}
+                {currentView === 'write' && <WriteView profile={profile} partner={partner} submissions={submissions} />}
+                {currentView === 'settings' && <SettingsView profile={profile} partner={partner} />}
               </>
             )}
           </div>
@@ -569,16 +570,7 @@ export default function App() {
                 <p className="text-xs text-indigo-500 dark:text-indigo-400 font-medium">Kamu</p>
               </div>
             </div>
-          ) : isSoloMode ? (
-            <div className="flex items-center space-x-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 transition-colors">
-              <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
-                <Book className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-slate-800 dark:text-slate-100">Mode Sendiri</p>
-                <p className="text-xs text-slate-600 dark:text-slate-400">Privat</p>
-              </div>
-            </div>
+
           ) : (
             <div className="flex items-center space-x-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 transition-colors">
               <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
@@ -592,7 +584,7 @@ export default function App() {
           )}
         </div>
 
-        {(partner || isSoloMode) && (
+        {partner && (
           <div className="mt-8">
             <h3 className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-4">Status Hari Ini</h3>
             <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm text-center transition-colors">
@@ -658,7 +650,7 @@ const MobileNavItem = ({ icon, label, isActive, onClick }) => (
 
 // --- Sub-View ---
 
-const NotPairedView = ({ onGoToSettings, onSoloMode, isProcessingSolo, soloError }) => (
+const NotPairedView = ({ onGoToSettings }) => (
   <div className="flex flex-col items-center justify-center h-[60vh] text-center px-4">
     <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mb-6 transition-colors">
       <Users className="w-10 h-10 text-indigo-400 dark:text-indigo-500" />
@@ -671,19 +663,12 @@ const NotPairedView = ({ onGoToSettings, onSoloMode, isProcessingSolo, soloError
     >
       Mulai Terhubung
     </button>
-    <button
-      onClick={onSoloMode}
-      disabled={isProcessingSolo}
-      className="mt-6 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 text-sm font-semibold transition-colors disabled:opacity-50"
-    >
-      {isProcessingSolo ? 'Menyiapkan...' : 'Coba Sendiri'}
-    </button>
-    {soloError && <p className="text-red-500 text-xs mt-2">{soloError}</p>}
+
   </div>
 );
 
 // --- 1. Tampilan Jurnal ---
-const JournalView = ({ profile, partner, submissions, isSoloMode }) => {
+const JournalView = ({ profile, partner, submissions }) => {
   const [activeTab, setActiveTab] = useState('jurnalku'); // State untuk tab
   const [selectedDate, setSelectedDate] = useState(getTodayString()); // State untuk filter tanggal
 
@@ -739,16 +724,15 @@ const JournalView = ({ profile, partner, submissions, isSoloMode }) => {
         subs={subsForSelectedDate}
         profile={profile}
         partner={partner}
-        isSoloMode={isSoloMode}
         activeTab={activeTab}
       />
     </div>
   );
 };
 
-const DailySection = ({ date, subs, profile, partner, isSoloMode, activeTab }) => {
+const DailySection = ({ date, subs, profile, partner, activeTab }) => {
   const isToday = date === getTodayString();
-  const revealed = !isToday || isAfter8PM() || isSoloMode;
+  const revealed = !isToday || isAfter8PM();
 
   const mySubs = subs.filter(s => s.userId === profile.id);
   const partnerSubs = subs.filter(s => s.userId === partner?.id);
@@ -897,13 +881,13 @@ const FeedItem = ({ sub, user, isMe, isLast }) => {
 
 
 // --- 2. Tampilan Tulis ---
-const WriteView = ({ profile, submissions, isSoloMode }) => {
+const WriteView = ({ profile, submissions }) => {
   const [content, setContent] = useState("");
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
-  const isLocked = false; // Bypass untuk testing: isAfter8PM() && !isSoloMode;
+  const isLocked = isAfter8PM();
   const today = getTodayString();
   const myTodaySubs = submissions.filter(s => s.userId === profile.id && s.date === today);
 
@@ -976,11 +960,7 @@ const WriteView = ({ profile, submissions, isSoloMode }) => {
       <div className="bg-white dark:bg-slate-800 rounded-[24px] shadow-sm border border-slate-100 dark:border-slate-700 p-6 transition-colors duration-300">
         <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white mb-6 tracking-tight">Apa cerita hari ini?</h2>
 
-        {isSoloMode && isAfter8PM() && (
-          <div className="mb-4 bg-amber-50 text-amber-800 text-xs px-4 py-3 rounded-xl border border-amber-200 font-semibold">
-            Mode Sendiri: Batas waktu 20:00 diabaikan.
-          </div>
-        )}
+
 
         {isLocked ? (
           <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/50 rounded-2xl p-6 text-center transition-colors">
@@ -992,7 +972,7 @@ const WriteView = ({ profile, submissions, isSoloMode }) => {
           <>
             <textarea
               className="w-full min-h-[300px] bg-slate-50 dark:bg-slate-900/50 border-none rounded-xl p-6 text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/30 outline-none resize-y leading-relaxed text-lg transition-colors"
-              placeholder="Catat pemikiran, momen, atau perasaan yang ingin kubagikan..."
+              placeholder="Catat momen atau perasaan yang ingin dibagikan..."
               value={content}
               onChange={(e) => setContent(e.target.value)}
             />
@@ -1144,7 +1124,7 @@ const DraftCard = ({ sub, isLocked }) => {
 
 
 // --- 3. Tampilan Pengaturan / Penghubungan ---
-const SettingsView = ({ profile, partner, onSoloMode, isProcessingSolo }) => {
+const SettingsView = ({ profile, partner }) => {
   const [joinCode, setJoinCode] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [joinError, setJoinError] = useState("");
@@ -1155,6 +1135,10 @@ const SettingsView = ({ profile, partner, onSoloMode, isProcessingSolo }) => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [newName, setNewName] = useState(profile?.displayName || "");
   const [isSavingName, setIsSavingName] = useState(false);
+
+  // Avatar selection state
+  const [avatarStyle, setAvatarStyle] = useState('notionists'); // 'notionists', 'thumbs', or 'adventurer'
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
 
   useEffect(() => {
     if (profile?.displayName && !isEditingName) {
@@ -1174,6 +1158,19 @@ const SettingsView = ({ profile, partner, onSoloMode, isProcessingSolo }) => {
       console.error("Gagal update nama", e);
     } finally {
       setIsSavingName(false);
+    }
+  };
+
+  const handleUpdateAvatar = async (avatarUrl) => {
+    setIsSavingAvatar(true);
+    try {
+      await updateDoc(doc(db, getPublicPath('users'), profile.id), {
+        photoURL: avatarUrl
+      });
+    } catch (e) {
+      console.error("Gagal update avatar", e);
+    } finally {
+      setIsSavingAvatar(false);
     }
   };
 
@@ -1319,6 +1316,58 @@ const SettingsView = ({ profile, partner, onSoloMode, isProcessingSolo }) => {
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">ID: {profile?.id?.substring(0, 8)}...</p>
           </div>
         </div>
+
+        {/* Pilihan Avatar */}
+        <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-700">
+          <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-6">Pilih Avatar Simak</h3>
+          
+          <div className="flex flex-wrap gap-2 mb-6">
+            <button 
+              onClick={() => setAvatarStyle('notionists')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${avatarStyle === 'notionists' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}
+            >
+              Notionists
+            </button>
+            <button 
+              onClick={() => setAvatarStyle('thumbs')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${avatarStyle === 'thumbs' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}
+            >
+              Thumbs
+            </button>
+            <button 
+              onClick={() => setAvatarStyle('adventurer')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${avatarStyle === 'adventurer' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}
+            >
+              Adventurer
+            </button>
+          </div>
+
+          <div className="grid grid-cols-4 gap-4">
+            {(avatarStyle === 'notionists' ? NEUTRAL_AVATARS : (avatarStyle === 'thumbs' ? THUMBS_AVATARS : ADVENTURER_AVATARS)).map((url, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleUpdateAvatar(url)}
+                disabled={isSavingAvatar}
+                className={`relative group rounded-2xl overflow-hidden border-2 transition-all p-1 ${profile?.photoURL === url ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/40' : 'border-transparent hover:border-slate-200 dark:hover:border-slate-600'}`}
+              >
+                <img src={url} alt={`Avatar ${idx}`} className="w-full aspect-square rounded-xl object-cover" />
+                {profile?.photoURL === url && (
+                  <div className="absolute top-1 right-1 bg-indigo-600 text-white rounded-full p-0.5 shadow-sm">
+                    <CheckCircle2 className="w-3 h-3" />
+                  </div>
+                )}
+                {isSavingAvatar && profile?.photoURL === url && (
+                  <div className="absolute inset-0 bg-white/50 dark:bg-black/50 flex items-center justify-center">
+                    <div className="w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-4 leading-relaxed font-medium">
+            * Pilih gaya dan avatar di atas untuk mengganti foto profil Google kamu. Perubahan akan terlihat di seluruh aplikasi.
+          </p>
+        </div>
       </div>
 
       {/* Bagian Penghubungan */}
@@ -1359,28 +1408,8 @@ const SettingsView = ({ profile, partner, onSoloMode, isProcessingSolo }) => {
               )}
             </div>
           ) : (
-            <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 transition-colors">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">Mode Sendiri (Privat)</span>
-                <span className="px-2 py-1 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-md">Aktif</span>
-              </div>
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 font-medium leading-relaxed">Aku sedang mencoba Simak sendirian. Untuk mengundang atau bergabung, silakan keluar dari Mode Sendiri terlebih dahulu.</p>
-              {confirmUnpair ? (
-                <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-xl flex items-center justify-between border border-red-100 dark:border-red-900/50 transition-colors">
-                  <span className="text-xs text-red-600 dark:text-red-400 font-bold">Keluar dari Mode Sendiri?</span>
-                  <div className="space-x-3">
-                    <button onClick={handleUnpair} className="text-xs font-bold text-red-700 dark:text-red-400 hover:underline">Ya, Keluar</button>
-                    <button onClick={() => setConfirmUnpair(false)} className="text-xs text-slate-600 dark:text-slate-400 font-bold hover:underline">Batal</button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setConfirmUnpair(true)}
-                  className="text-sm text-red-500 dark:text-red-400 font-bold hover:text-red-600 dark:hover:text-red-300 transition-colors"
-                >
-                  Keluar dari Mode Sendiri
-                </button>
-              )}
+            <div className="bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/50 rounded-2xl p-6 transition-colors">
+              <p className="text-sm font-bold text-indigo-900 dark:text-indigo-200">Menyiapkan ruangan...</p>
             </div>
           )
         ) : (
@@ -1443,21 +1472,7 @@ const SettingsView = ({ profile, partner, onSoloMode, isProcessingSolo }) => {
               {joinError && <p className="text-red-500 text-xs mt-2 ml-1 font-medium">{joinError}</p>}
             </div>
 
-            <div className="relative flex items-center py-2">
-              <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-              <span className="flex-shrink-0 mx-4 text-slate-400 dark:text-slate-500 text-[10px] uppercase font-bold tracking-widest">Privat</span>
-              <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-            </div>
 
-            <div>
-              <button
-                onClick={onSoloMode}
-                disabled={isProcessingSolo}
-                className="w-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-bold py-3 rounded-xl transition-all disabled:opacity-50 active:scale-[0.98]"
-              >
-                {isProcessingSolo ? 'Menyiapkan...' : 'Coba Sendiri'}
-              </button>
-            </div>
 
           </div>
         )}
