@@ -798,6 +798,7 @@ const UserJournalFeed = ({ user, subs, isMe, isHidden }) => {
 };
 
 const FeedItem = ({ sub, user, isMe, isLast }) => {
+  const [showPicker, setShowPicker] = useState(false);
   const timeString = new Date(sub.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
   const handleReact = async (emoji) => {
@@ -848,23 +849,42 @@ const FeedItem = ({ sub, user, isMe, isLast }) => {
           <p className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap text-[15px] md:text-base leading-relaxed">{sub.content}</p>
 
           {/* Interaksi Reaksi */}
-          <div className="mt-5 flex items-center space-x-2 relative">
-            {!isMe && (
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex flex-wrap gap-1 bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 absolute -top-24 left-0 z-20 shadow-xl max-w-[200px]">
-                {EMOJI_OPTIONS.map(emoji => (
-                  <button
-                    key={emoji}
-                    onClick={() => handleReact(emoji)}
-                    className={`w-8 h-8 flex items-center justify-center text-base rounded-full hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${myReactionsArray.includes(emoji) ? 'bg-indigo-50 dark:bg-indigo-900 ring-2 ring-indigo-200 dark:ring-indigo-800' : ''}`}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            )}
+          <div className="mt-5 flex items-center space-x-3 relative">
+            <div className="relative">
+              <button
+                onClick={() => setShowPicker(!showPicker)}
+                className={`w-8 h-8 flex items-center justify-center rounded-full transition-all duration-200 ${showPicker ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 scale-110' : 'text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30'}`}
+                title="Berikan reaksi"
+              >
+                <Smile className="w-5 h-5" />
+              </button>
+
+              {showPicker && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowPicker(false)}
+                  ></div>
+                  <div className="flex flex-wrap gap-1 bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 absolute -top-32 left-0 z-20 shadow-xl w-[200px] animate-in zoom-in duration-200 origin-bottom-left">
+                    {EMOJI_OPTIONS.map(emoji => (
+                      <button
+                        key={emoji}
+                        onClick={() => {
+                          handleReact(emoji);
+                          setShowPicker(false);
+                        }}
+                        className={`w-8 h-8 flex items-center justify-center text-base rounded-full hover:bg-slate-50 dark:hover:bg-slate-700 transition-all ${myReactionsArray.includes(emoji) ? 'bg-indigo-50 dark:bg-indigo-900 ring-2 ring-indigo-200 dark:ring-indigo-800' : ''}`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
 
             {sub.reactions && Object.keys(sub.reactions).length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 border-l border-slate-100 dark:border-slate-700 pl-3">
                 {Object.values(sub.reactions).flat().map((emoji, idx) => (
                   <span key={idx} className="inline-flex items-center justify-center w-8 h-8 text-[14px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full shadow-sm select-none animate-in zoom-in duration-300">
                     {emoji}
