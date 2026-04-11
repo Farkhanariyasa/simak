@@ -165,6 +165,7 @@ export default function App() {
 
   const [currentView, setCurrentView] = useState('journal');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [selectedPreviewImg, setSelectedPreviewImg] = useState(null);
 
 
 
@@ -548,14 +549,17 @@ export default function App() {
               />
             ) : (
               <>
-                {currentView === 'journal' && <JournalView profile={profile} partner={partner} submissions={submissions} dailyRatings={dailyRatings} />}
-                {currentView === 'write' && <WriteView profile={profile} partner={partner} submissions={submissions} dailyRatings={dailyRatings} />}
+                {currentView === 'journal' && <JournalView profile={profile} partner={partner} submissions={submissions} dailyRatings={dailyRatings} onImageClick={setSelectedPreviewImg} />}
+                {currentView === 'write' && <WriteView profile={profile} partner={partner} submissions={submissions} dailyRatings={dailyRatings} onImageClick={setSelectedPreviewImg} />}
                 {currentView === 'settings' && <SettingsView profile={profile} partner={partner} />}
               </>
             )}
           </div>
         </div>
       </main>
+
+      {/* Modal Preview Gambar */}
+      <ImagePreviewModal imageUrl={selectedPreviewImg} onClose={() => setSelectedPreviewImg(null)} />
 
       {/* Sidebar Kanan (Desktop) */}
       <aside className="w-80 bg-white dark:bg-slate-900 border-l border-slate-100 dark:border-slate-800 hidden lg:flex flex-col p-6 z-10 overflow-y-auto custom-scrollbar transition-colors duration-300">
@@ -666,6 +670,33 @@ const MobileNavItem = ({ icon, label, isActive, onClick }) => (
   </button>
 );
 
+const ImagePreviewModal = ({ imageUrl, onClose }) => {
+  if (!imageUrl) return null;
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4 animate-in fade-in duration-300"
+      onClick={onClose}
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-6 right-6 text-white/70 hover:text-white transition-colors z-10 p-2 hover:bg-white/10 rounded-full"
+      >
+        <X className="w-8 h-8" />
+      </button>
+      <div
+        className="relative max-w-5xl w-full h-full flex items-center justify-center"
+        onClick={e => e.stopPropagation()}
+      >
+        <img
+          src={imageUrl}
+          alt="Preview"
+          className="max-w-full max-h-full object-contain rounded-xl shadow-2xl animate-in zoom-in-95 duration-300"
+        />
+      </div>
+    </div>
+  );
+};
+
 // --- Sub-View ---
 
 const NotPairedView = ({ onGoToSettings }) => (
@@ -686,7 +717,7 @@ const NotPairedView = ({ onGoToSettings }) => (
 );
 
 // --- 1. Tampilan Jurnal ---
-const JournalView = ({ profile, partner, submissions, dailyRatings }) => {
+const JournalView = ({ profile, partner, submissions, dailyRatings, onImageClick }) => {
   const [activeTab, setActiveTab] = useState('jurnalku'); // State untuk tab
   const [selectedDate, setSelectedDate] = useState(getTodayString()); // State untuk filter tanggal
 
@@ -744,12 +775,13 @@ const JournalView = ({ profile, partner, submissions, dailyRatings }) => {
         partner={partner}
         activeTab={activeTab}
         dailyRatings={dailyRatings}
+        onImageClick={onImageClick}
       />
     </div>
   );
 };
 
-const DailySection = ({ date, subs, profile, partner, activeTab, dailyRatings }) => {
+const DailySection = ({ date, subs, profile, partner, activeTab, dailyRatings, onImageClick }) => {
   const isToday = date === getTodayString();
   const revealed = !isToday || isAfter8PM();
 
@@ -761,7 +793,7 @@ const DailySection = ({ date, subs, profile, partner, activeTab, dailyRatings })
       <div className="flex flex-col space-y-10">
         {activeTab === 'jurnalmu' && (
           partner ? (
-            <UserJournalFeed user={partner} subs={partnerSubs} isMe={false} isHidden={!revealed} date={date} dailyRatings={dailyRatings} />
+            <UserJournalFeed user={partner} subs={partnerSubs} isMe={false} isHidden={!revealed} date={date} dailyRatings={dailyRatings} onImageClick={onImageClick} />
           ) : (
             <div className="bg-slate-50 dark:bg-slate-800 rounded-[32px] p-8 border border-slate-200 dark:border-slate-700 text-center transition-colors">
               <UserPlus className="w-8 h-8 text-slate-400 dark:text-slate-500 mx-auto mb-3" />
@@ -771,14 +803,14 @@ const DailySection = ({ date, subs, profile, partner, activeTab, dailyRatings })
         )}
 
         {activeTab === 'jurnalku' && (
-          <UserJournalFeed user={profile} subs={mySubs} isMe={true} isHidden={false} date={date} dailyRatings={dailyRatings} />
+          <UserJournalFeed user={profile} subs={mySubs} isMe={true} isHidden={false} date={date} dailyRatings={dailyRatings} onImageClick={onImageClick} />
         )}
       </div>
     </div>
   );
 };
 
-const UserJournalFeed = ({ user, subs, isMe, isHidden, date, dailyRatings }) => {
+const UserJournalFeed = ({ user, subs, isMe, isHidden, date, dailyRatings, onImageClick }) => {
   const [showRatingPicker, setShowRatingPicker] = useState(false);
   const ratingDoc = dailyRatings.find(r => r.userId === user?.id && r.date === date);
   const userRating = ratingDoc?.rating;
@@ -896,7 +928,7 @@ const UserJournalFeed = ({ user, subs, isMe, isHidden, date, dailyRatings }) => 
         ) : (
           <div className="space-y-0">
             {subs.map((sub, idx) => (
-              <FeedItem key={sub.id} sub={sub} user={user} isMe={isMe} isLast={idx === subs.length - 1} />
+              <FeedItem key={sub.id} sub={sub} user={user} isMe={isMe} isLast={idx === subs.length - 1} onImageClick={onImageClick} />
             ))}
           </div>
         )}
@@ -905,7 +937,7 @@ const UserJournalFeed = ({ user, subs, isMe, isHidden, date, dailyRatings }) => 
   );
 };
 
-const FeedItem = ({ sub, user, isMe, isLast }) => {
+const FeedItem = ({ sub, user, isMe, isLast, onImageClick }) => {
   const [showPicker, setShowPicker] = useState(false);
   const timeString = new Date(sub.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
@@ -950,8 +982,11 @@ const FeedItem = ({ sub, user, isMe, isLast }) => {
 
         <div className="bg-[#f8fafc] dark:bg-slate-900/50 rounded-3xl p-5 md:p-6 border border-slate-100 dark:border-slate-800 transition-colors">
           {sub.imageUrl && (
-            <div className="mb-4 rounded-2xl overflow-hidden bg-slate-200 dark:bg-slate-800 border border-slate-100 dark:border-slate-800">
-              <img src={sub.imageUrl} alt="Momen" className="w-full object-cover max-h-96" loading="lazy" />
+            <div 
+              className="mb-4 rounded-2xl overflow-hidden bg-slate-200 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 cursor-pointer hover:ring-2 ring-indigo-500/50 transition-all"
+              onClick={() => onImageClick(sub.imageUrl)}
+            >
+              <img src={sub.imageUrl} alt="Momen" className="w-full object-cover max-h-96 hover:scale-105 transition-transform duration-500" loading="lazy" />
             </div>
           )}
           <p className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap text-[15px] md:text-base leading-relaxed">{sub.content}</p>
@@ -1009,7 +1044,7 @@ const FeedItem = ({ sub, user, isMe, isLast }) => {
 
 
 // --- 2. Tampilan Tulis ---
-const WriteView = ({ profile, submissions, dailyRatings }) => {
+const WriteView = ({ profile, submissions, dailyRatings, onImageClick }) => {
   const [content, setContent] = useState("");
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1195,7 +1230,7 @@ const WriteView = ({ profile, submissions, dailyRatings }) => {
         ) : (
           <div className="space-y-4">
             {myTodaySubs.map(sub => (
-              <DraftCard key={sub.id} sub={sub} isLocked={isLocked} />
+              <DraftCard key={sub.id} sub={sub} isLocked={isLocked} onImageClick={onImageClick} />
             ))}
           </div>
         )}
@@ -1206,7 +1241,7 @@ const WriteView = ({ profile, submissions, dailyRatings }) => {
 };
 
 // Komponen Kartu untuk Halaman Tulis (Mendukung Edit & Hapus)
-const DraftCard = ({ sub, isLocked }) => {
+const DraftCard = ({ sub, isLocked, onImageClick }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(sub.content);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1280,7 +1315,14 @@ const DraftCard = ({ sub, isLocked }) => {
         </div>
       ) : (
         <>
-          {sub.imageUrl && <img src={sub.imageUrl} alt="entri" className="rounded-lg max-h-48 object-cover mb-4 border border-slate-100 dark:border-slate-700" />}
+          {sub.imageUrl && (
+            <img 
+              src={sub.imageUrl} 
+              alt="entri" 
+              className="rounded-lg max-h-48 w-full object-cover mb-4 border border-slate-100 dark:border-slate-700 cursor-pointer hover:opacity-90 transition-opacity" 
+              onClick={() => onImageClick(sub.imageUrl)}
+            />
+          )}
           <p className="text-slate-700 dark:text-slate-200 text-[15px] whitespace-pre-wrap leading-relaxed">{sub.content}</p>
         </>
       )}
