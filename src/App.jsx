@@ -40,7 +40,8 @@ import {
   CheckCircle2,
   Menu,
   X,
-  Calendar
+  Calendar,
+  Clock
 } from 'lucide-react';
 
 // --- Konfigurasi Sistem ---
@@ -129,6 +130,96 @@ const isAfter8PM = () => {
 };
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
+
+// --- Komponen Countdown Timer ---
+const TimeUnit = ({ value, label }) => (
+  <div className="flex flex-col items-center">
+    <div className="bg-slate-50 dark:bg-slate-700/50 px-2 py-1 rounded-lg border border-slate-100 dark:border-slate-600 min-w-[32px] transition-colors">
+      <span className="text-lg font-mono font-bold text-indigo-600 dark:text-indigo-400 tabular-nums">
+        {value}
+      </span>
+    </div>
+    <span className="text-[8px] uppercase tracking-tighter text-slate-400 mt-1 font-bold">{label}</span>
+  </div>
+);
+
+const CountdownTimer = ({ compact = false }) => {
+  const [timeLeft, setTimeLeft] = useState({ h: '00', m: '00', s: '00' });
+  const [isRevealed, setIsRevealed] = useState(isAfter8PM());
+
+  useEffect(() => {
+    const updateTimer = () => {
+      const now = new Date();
+      const target = new Date();
+      target.setHours(20, 0, 0, 0);
+      
+      const after8 = now.getHours() >= 20;
+      setIsRevealed(after8);
+
+      if (after8) {
+        setTimeLeft({ h: '00', m: '00', s: '00' });
+        return;
+      }
+
+      const diff = target - now;
+      const h = Math.floor(diff / (1000 * 60 * 60));
+      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+      setTimeLeft({
+        h: String(h).padStart(2, '0'),
+        m: String(m).padStart(2, '0'),
+        s: String(s).padStart(2, '0')
+      });
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (isRevealed && !compact) return (
+    <div className="flex flex-col items-center animate-in fade-in duration-500">
+      <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/20 rounded-full flex items-center justify-center mb-2">
+        <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+      </div>
+      <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Jurnal Terungkap</p>
+      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-tight font-medium">Silakan baca entri hari ini</p>
+    </div>
+  );
+  
+  if (isRevealed) return null;
+
+  if (compact) {
+    return (
+      <div className="flex items-center space-x-1.5 px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg border border-indigo-100 dark:border-indigo-800/50 transition-all">
+        <Clock className="w-3 h-3 text-indigo-600 dark:text-indigo-400 animate-pulse" />
+        <span className="text-[10px] font-mono font-bold text-indigo-700 dark:text-indigo-300 tabular-nums">
+          {timeLeft.h}:{timeLeft.m}:{timeLeft.s}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center animate-in fade-in slide-in-from-top-2 duration-500">
+      <div className="flex items-center space-x-2 mb-3">
+        <div className="relative">
+          <Clock className="w-4 h-4 text-amber-500 animate-pulse" />
+          <div className="absolute inset-0 bg-amber-500/20 blur-sm rounded-full animate-ping"></div>
+        </div>
+        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Mengungkap Kisah dalam</span>
+      </div>
+      <div className="flex items-center space-x-2">
+        <TimeUnit value={timeLeft.h} label="Jam" />
+        <span className="text-slate-300 dark:text-slate-600 font-light mb-5">:</span>
+        <TimeUnit value={timeLeft.m} label="Min" />
+        <span className="text-slate-300 dark:text-slate-600 font-light mb-5">:</span>
+        <TimeUnit value={timeLeft.s} label="Det" />
+      </div>
+    </div>
+  );
+};
 
 // --- Komponen Utama Aplikasi ---
 export default function App() {
@@ -528,9 +619,12 @@ export default function App() {
             </div>
             <span className="font-semibold text-slate-800 dark:text-slate-100">SIMAK.</span>
           </div>
-          <button onClick={() => setIsMobileMenuOpen(true)} className="text-slate-600 dark:text-slate-400">
-            <Menu className="w-6 h-6" />
-          </button>
+          <div className="flex items-center space-x-3">
+            <CountdownTimer compact={true} />
+            <button onClick={() => setIsMobileMenuOpen(true)} className="text-slate-600 dark:text-slate-400">
+              <Menu className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         {/* Banner Status Koneksi */}
@@ -609,20 +703,8 @@ export default function App() {
         {partner && (
           <div className="mt-8">
             <h3 className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest mb-4">Status Hari Ini</h3>
-            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm text-center transition-colors">
-              {isAfter8PM() ? (
-                <>
-                  <Lock className="w-5 h-5 text-indigo-500 dark:text-indigo-400 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Jurnal Terungkap</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">Entri hari ini telah dikunci dan dapat dibaca bersama.</p>
-                </>
-              ) : (
-                <>
-                  <Book className="w-5 h-5 text-amber-500 dark:text-amber-400 mx-auto mb-2" />
-                  <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Sedang Menulis</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 font-medium">Terungkap otomatis pukul 20:00.</p>
-                </>
-              )}
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm text-center transition-all hover:shadow-md backdrop-blur-sm">
+              <CountdownTimer />
             </div>
           </div>
         )}
