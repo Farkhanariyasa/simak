@@ -91,7 +91,7 @@ const ADVENTURER_AVATARS = [
   'https://api.dicebear.com/9.x/adventurer/svg?seed=Max&backgroundColor=c0aede',
   'https://api.dicebear.com/9.x/adventurer/svg?seed=Ruby&backgroundColor=ffd5dc'
 ];
-const EMOJI_OPTIONS = ['❤️', '🥰', '✨', '🙌', '🔥', '😄', '😮', '😢', '😭', '😔', '🤯', '😴', '👍', '🙏', '🎉', '😡']
+const EMOJI_OPTIONS = ['❤️', '🥰', '✨', '🙌', '🔥', '😄', '😂', '🤣', '😮', '😱', '😲', '🤯', '😢', '😭', '😔', '🫠', '🥹', '😴', '👍', '🙏', '🎉', '😡', '🫡', '👀', '💀', '💯']
 
 let app, auth, db;
 
@@ -972,8 +972,8 @@ const UserJournalFeed = ({ user, subs, isMe, isHidden, date, dailyRatings, onIma
               {showRatingPicker && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowRatingPicker(false)}></div>
-                  <div className="flex flex-wrap gap-1 bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 absolute top-10 right-0 z-20 shadow-xl w-[180px] animate-in zoom-in duration-200 origin-top-right">
-                    {EMOJI_OPTIONS.slice(0, 8).map(emoji => ( // Ambil 8 saja biar simpel
+                  <div className="flex flex-wrap gap-1 bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 absolute top-10 right-0 z-20 shadow-xl w-[200px] animate-in zoom-in duration-200 origin-top-right">
+                    {EMOJI_OPTIONS.slice(0, 12).map(emoji => ( // Ambil lebih banyak biar variatif
                       <button
                         key={emoji}
                         onClick={() => {
@@ -1090,7 +1090,7 @@ const FeedItem = ({ sub, user, isMe, isLast, onImageClick }) => {
                     className="fixed inset-0 z-10"
                     onClick={() => setShowPicker(false)}
                   ></div>
-                  <div className="flex flex-wrap gap-1 bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 absolute -top-32 left-0 z-20 shadow-xl w-[200px] animate-in zoom-in duration-200 origin-bottom-left">
+                  <div className="flex flex-wrap gap-1 bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 absolute bottom-10 left-0 z-20 shadow-xl w-[220px] animate-in zoom-in duration-200 origin-bottom-left">
                     {EMOJI_OPTIONS.map(emoji => (
                       <button
                         key={emoji}
