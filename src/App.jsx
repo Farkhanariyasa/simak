@@ -41,7 +41,9 @@ import {
   Menu,
   X,
   Calendar,
-  Clock
+  Clock,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 // --- Konfigurasi Sistem ---
@@ -91,7 +93,7 @@ const ADVENTURER_AVATARS = [
   'https://api.dicebear.com/9.x/adventurer/svg?seed=Max&backgroundColor=c0aede',
   'https://api.dicebear.com/9.x/adventurer/svg?seed=Ruby&backgroundColor=ffd5dc'
 ];
-const EMOJI_OPTIONS = ['❤️', '🥰', '✨', '🙌', '🔥', '😄', '😂', '🤣', '😮', '😱', '😲', '🤯', '😢', '😭', '😔', '🫠', '🥹', '😴', '👍', '🙏', '🎉', '😡', '🫡', '👀', '💀', '💯']
+const EMOJI_OPTIONS = ['❤️', '🥰', '✨', '🙌', '🔥', '😄', '😂', '🤣', '😮', '😱', '😲', '🤯', '😢', '😭', '😔', '🫠', '🥹', '😴', '👍', '🙏', '🎉', '😡', '🫡', '👀', '💀', '💯', '🥺', '🤩', '🤝', '🫂']
 
 let app, auth, db;
 
@@ -126,7 +128,13 @@ const getTodayString = () => {
 };
 
 const isAfter8PM = () => {
-  return new Date().getHours() >= 20;
+  const now = new Date();
+  return now.getHours() >= 20;
+};
+
+const isAfter6AM = () => {
+  const now = new Date();
+  return now.getHours() >= 6;
 };
 
 const generateId = () => Math.random().toString(36).substring(2, 15);
@@ -253,6 +261,8 @@ export default function App() {
   const [room, setRoom] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [dailyRatings, setDailyRatings] = useState([]);
+  const [dailyQuestions, setDailyQuestions] = useState([]);
+  const [dailyAnswers, setDailyAnswers] = useState([]);
 
   const [currentView, setCurrentView] = useState('journal');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -305,6 +315,8 @@ export default function App() {
         setPartner(null);
         setSubmissions([]);
         setDailyRatings([]);
+        setDailyQuestions([]);
+        setDailyAnswers([]);
       }
       setAuthLoading(false);
     });
@@ -414,6 +426,8 @@ export default function App() {
       setPartner(null);
       setSubmissions([]);
       setDailyRatings([]);
+      setDailyQuestions([]);
+      setDailyAnswers([]);
       return;
     }
 
@@ -491,10 +505,40 @@ export default function App() {
       (err) => console.error("Error mendengarkan rating harian", err)
     );
 
+    // Mendengarkan pertanyaan harian
+    const questionsQ = query(
+      collection(db, getPublicPath('daily_questions')),
+      where("roomId", "==", profile.roomId)
+    );
+
+    const questionsUnsub = onSnapshot(
+      questionsQ,
+      (snap) => {
+        setDailyQuestions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      },
+      (err) => console.error("Error mendengarkan pertanyaan harian", err)
+    );
+
+    // Mendengarkan jawaban pertanyaan harian
+    const answersQ = query(
+      collection(db, getPublicPath('daily_question_answers')),
+      where("roomId", "==", profile.roomId)
+    );
+
+    const answersUnsub = onSnapshot(
+      answersQ,
+      (snap) => {
+        setDailyAnswers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      },
+      (err) => console.error("Error mendengarkan jawaban harian", err)
+    );
+
     return () => {
       roomUnsub();
       subsUnsub();
       ratingsUnsub();
+      questionsUnsub();
+      answersUnsub();
       if (partnerUnsub) partnerUnsub();
     };
   }, [profile?.roomId, profile?.id]);
@@ -528,7 +572,7 @@ export default function App() {
   if (!isConfigValid) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6 text-center">
-        <div className="max-w-md bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+        <div className="max-w-md bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
           <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <Lock className="w-8 h-8 text-red-400" />
           </div>
@@ -564,9 +608,9 @@ export default function App() {
             <div className="mt-auto pt-6 border-t border-slate-100 dark:border-slate-800">
               <button
                 onClick={toggleDarkMode}
-                className="flex items-center space-x-3 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors w-full p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 mb-2"
+                className="flex items-center space-x-3 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors w-full p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 mb-2"
               >
-                {isDarkMode ? <Smile className="w-5 h-5" /> : <Frown className="w-5 h-5" />}
+                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
                 <span className="font-medium text-sm">{isDarkMode ? 'Mode Terang' : 'Mode Gelap'}</span>
               </button>
               <button
@@ -582,7 +626,7 @@ export default function App() {
       )}
 
       {/* Sidebar Kiri (Desktop) */}
-      <aside className="w-64 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 hidden md:flex flex-col p-6 z-10 transition-colors duration-300">
+      <aside className="w-56 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 hidden md:flex flex-col p-6 z-10 transition-colors duration-300">
         <div className="flex items-center mb-10">
           <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center mr-3 shadow-sm shadow-indigo-200">
             <span className="text-white font-bold text-lg">S</span>
@@ -594,9 +638,9 @@ export default function App() {
         <div className="mt-auto pt-6 border-t border-slate-100 dark:border-slate-800">
           <button
             onClick={toggleDarkMode}
-            className="flex items-center space-x-3 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors w-full p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 mb-2"
+            className="flex items-center space-x-3 text-slate-500 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors w-full p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 mb-2"
           >
-            {isDarkMode ? <Smile className="w-5 h-5" /> : <Frown className="w-5 h-5" />}
+            {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             <span className="font-medium text-sm">{isDarkMode ? 'Mode Terang' : 'Mode Gelap'}</span>
           </button>
           <button
@@ -635,16 +679,16 @@ export default function App() {
         )}
 
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-10 custom-scrollbar">
-          <div className="max-w-4xl xl:max-w-5xl mx-auto w-full pb-24 md:pb-0">
+        <div className="flex-1 overflow-y-auto p-4 md:p-5 lg:p-8 custom-scrollbar">
+          <div className="max-w-3xl xl:max-w-4xl mx-auto w-full pb-24 md:pb-0">
             {!profile?.roomId && currentView !== 'settings' ? (
               <NotPairedView
                 onGoToSettings={() => setCurrentView('settings')}
               />
             ) : (
               <>
-                {currentView === 'journal' && <JournalView profile={profile} partner={partner} submissions={submissions} dailyRatings={dailyRatings} onImageClick={setSelectedPreviewImg} />}
-                {currentView === 'write' && <WriteView profile={profile} partner={partner} submissions={submissions} dailyRatings={dailyRatings} onImageClick={setSelectedPreviewImg} />}
+                {currentView === 'journal' && <JournalView profile={profile} partner={partner} submissions={submissions} dailyRatings={dailyRatings} dailyQuestions={dailyQuestions} dailyAnswers={dailyAnswers} onImageClick={setSelectedPreviewImg} />}
+                {currentView === 'write' && <WriteView profile={profile} partner={partner} submissions={submissions} dailyRatings={dailyRatings} dailyQuestions={dailyQuestions} dailyAnswers={dailyAnswers} onImageClick={setSelectedPreviewImg} />}
                 {currentView === 'settings' && <SettingsView profile={profile} partner={partner} />}
               </>
             )}
@@ -656,12 +700,12 @@ export default function App() {
       <ImagePreviewModal imageUrl={selectedPreviewImg} onClose={() => setSelectedPreviewImg(null)} />
 
       {/* Sidebar Kanan (Desktop) */}
-      <aside className="w-80 bg-white dark:bg-slate-900 border-l border-slate-100 dark:border-slate-800 hidden lg:flex flex-col p-6 z-10 overflow-y-auto custom-scrollbar transition-colors duration-300">
+      <aside className="w-72 bg-white dark:bg-slate-900 border-l border-slate-100 dark:border-slate-800 hidden lg:flex flex-col p-6 z-10 overflow-y-auto custom-scrollbar transition-colors duration-300">
         <h3 className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-6">Koneksi</h3>
 
         <div className="space-y-6">
           {/* Profil Singkat Saya */}
-          <div className="flex items-center space-x-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 transition-colors">
+          <div className="flex items-center space-x-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 transition-colors">
             <img
               src={profile?.photoURL || DEFAULT_AVATAR(profile?.id)}
               alt="Saya"
@@ -679,8 +723,8 @@ export default function App() {
 
           {/* Profil Singkat Pasangan */}
           {partner ? (
-            <div className="flex items-center space-x-4 bg-indigo-50/50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/50 transition-colors">
-              <img src={partner.photoURL || DEFAULT_AVATAR(partner.id)} alt="Pasangan" className="w-12 h-12 rounded-full border-2 border-white dark:border-slate-700 shadow-sm" />
+            <div className="flex items-center space-x-4 bg-indigo-50/50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/50 transition-colors">
+              <img src={partner.photoURL || DEFAULT_AVATAR(partner.id)} alt={partner?.displayName || 'Dia'} className="w-12 h-12 rounded-full border-2 border-white dark:border-slate-700 shadow-sm" />
               <div>
                 <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{partner.displayName}</p>
                 <p className="text-xs text-indigo-500 dark:text-indigo-400 font-medium">Kamu</p>
@@ -688,7 +732,7 @@ export default function App() {
             </div>
 
           ) : (
-            <div className="flex items-center space-x-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 transition-colors">
+            <div className="flex items-center space-x-4 bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 transition-colors">
               <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
                 <UserPlus className="w-5 h-5 text-slate-500 dark:text-slate-400" />
               </div>
@@ -779,14 +823,510 @@ const ImagePreviewModal = ({ imageUrl, onClose }) => {
   );
 };
 
+const getYesterdayString = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const isAnswerRevealedForDate = (date) => {
+  const today = getTodayString();
+  const yesterday = getYesterdayString();
+  
+  if (date < yesterday) return true;
+  if (date === yesterday) return isAfter6AM();
+  return false;
+};
+
+// --- Komponen Pertanyaan Harian ---
+const DailyQuestionSection = ({ profile, partner, dailyQuestions, dailyAnswers, date }) => {
+  const [newQuestion, setNewQuestion] = useState("");
+  const [newAnswer, setNewAnswer] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  const today = getTodayString();
+  const isToday = date === today;
+  
+  const questionDoc = dailyQuestions.find(q => q.date === date && q.creatorId === profile.id);
+  const answerDoc = dailyAnswers.find(a => a.date === date);
+
+  const isQuestionRevealed = (date < today) || (isToday && isAfter8PM());
+  const isCreator = true;
+
+  const handlePostQuestion = async () => {
+    if (!newQuestion.trim()) return;
+    setIsSubmitting(true);
+    try {
+      const qId = `${profile.roomId}_${date}_${profile.id}`;
+      await setDoc(doc(db, getPublicPath('daily_questions'), qId), {
+        id: qId,
+        roomId: profile.roomId,
+        date: date,
+        question: newQuestion.trim(),
+        creatorId: profile.id,
+        createdAt: Date.now()
+      });
+      setNewQuestion("");
+      setIsEditMode(false);
+    } catch (e) {
+      console.error("Gagal menyimpan pertanyaan", e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteQuestion = async () => {
+    if (!window.confirm("Hapus pertanyaan ini?")) return;
+    setIsSubmitting(true);
+    try {
+      const qId = `${profile.roomId}_${date}_${profile.id}`;
+      await deleteDoc(doc(db, getPublicPath('daily_questions'), qId));
+    } catch (e) {
+      console.error("Gagal menghapus pertanyaan", e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // 1. Belum ada pertanyaan
+  if (!questionDoc) {
+    // Bisa buat pertanyaan jika:
+    // - selectedDate adalah hari esok atau nanti
+    // - selectedDate adalah hari ini DAN belum jam 8 malam
+    const canCreate = (date > today) || (isToday && !isAfter8PM());
+    
+    if (!canCreate) {
+      if (isToday) {
+        return (
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-8 border border-dashed border-slate-300 dark:border-slate-700 text-center mb-10 transition-colors">
+            <Lock className="w-8 h-8 text-slate-400 mx-auto mb-3" />
+            <h3 className="font-bold text-slate-800 dark:text-slate-100">Waktu Terlewat</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium">Batas pembuatan pertanyaan hari ini (jam 20:00) sudah lewat. Coba pilih tanggal besok!</p>
+          </div>
+        );
+      }
+      return null;
+    }
+
+    return (
+      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 md:p-10 border border-slate-200 dark:border-slate-700 shadow-sm mb-8 transition-all duration-300 relative overflow-hidden group">
+        <div className="flex items-center space-x-3 mb-8">
+          <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center transition-colors">
+            <PenTool className="w-6 h-6 text-indigo-500" />
+          </div>
+          <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">Buat Pertanyaan untuk {partner?.displayName || 'dia'} {isToday ? '' : `pada ${date}`}</h3>
+        </div>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 font-medium">Berikan satu pertanyaan untuk dijawab {partner?.displayName || 'dia'} hari ini. Akan terungkap jam 20:00.</p>
+        <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-2">
+          <input 
+            type="text"
+            value={newQuestion}
+            onChange={(e) => setNewQuestion(e.target.value)}
+            placeholder="Ketik pertanyaanmu..."
+            className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/10 transition-all text-slate-800 dark:text-slate-100"
+          />
+          <button 
+            onClick={handlePostQuestion}
+            disabled={isSubmitting || !newQuestion.trim()}
+            className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-500 dark:disabled:text-slate-600 text-white px-6 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 shadow-sm"
+          >
+            {isSubmitting ? 'Menyimpan...' : 'Simpan'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Pertanyaan sudah ada tapi belum terungkap (Future, or Today before 8 PM)
+  
+  if (!isQuestionRevealed) {
+    return (
+      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 md:p-10 border border-slate-200 dark:border-slate-700 shadow-sm mb-8 transition-all duration-300 relative overflow-hidden group">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-2">
+            <Clock className="w-4 h-4 text-slate-400" />
+            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">Pertanyaan Harian</h3>
+          </div>
+          {isCreator && (
+            <div className="flex items-center space-x-1">
+              <button 
+                onClick={() => {
+                  setNewQuestion(questionDoc.question);
+                  setIsEditMode(!isEditMode);
+                }}
+                className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
+                title="Edit Pertanyaan"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+              <button 
+                onClick={handleDeleteQuestion}
+                className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
+                title="Hapus Pertanyaan"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </div>
+        
+        {isCreator && isEditMode ? (
+          <div className="space-y-4">
+            <div className="flex space-x-2">
+              <input 
+                type="text"
+                value={newQuestion}
+                placeholder="Ubah pertanyaan..."
+                onChange={(e) => setNewQuestion(e.target.value)}
+                className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/10 transition-all text-slate-800 dark:text-slate-100"
+              />
+              <button 
+                onClick={handlePostQuestion}
+                disabled={isSubmitting || !newQuestion.trim() || newQuestion === questionDoc.question}
+                className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-500 dark:disabled:text-slate-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 shadow-sm"
+              >
+                {isSubmitting ? 'Menyimpan...' : 'Update'}
+              </button>
+              <button 
+                onClick={() => setIsEditMode(false)}
+                className="px-3 py-2 text-slate-400 hover:text-slate-600 font-bold text-sm"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
+            <p className="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed italic">
+              {isCreator ? `"${questionDoc.question}"` : `${partner?.displayName || 'Dia'} sudah menyiapkan pertanyaan. Tunggu jam 20:00 ya!`}
+            </p>
+            {isCreator && !isEditMode && <p className="text-[10px] text-slate-400 mt-2 uppercase font-bold tracking-tight">Muncul jam 20:00</p>}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 3. Pertanyaan sudah terungkap
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 md:p-10 border border-slate-200 dark:border-slate-700 shadow-sm mb-8 transition-all duration-300 relative overflow-hidden group">
+      <div className="space-y-4">
+        <div>
+          <span className="text-[10px] uppercase font-black text-indigo-500 tracking-widest mb-1 block leading-none">Status Pertanyaan</span>
+          <h2 className="text-lg font-black text-slate-800 dark:text-white leading-tight">"{questionDoc.question}"</h2>
+          <div className="flex items-center mt-2 text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+            <span>Terungkap (Jam 20:00)</span>
+          </div>
+        </div>
+        <div className="pt-4 border-t border-slate-50 dark:border-slate-700">
+           <p className="text-xs text-slate-500 font-medium">Lihat dan jawab pertanyaan ini di tab <span className="text-indigo-600 font-bold">Jurnal</span>.</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // --- Sub-View ---
+// --- Kartu Pertanyaan untuk Feed Jurnal (Hanya Lihat) ---
+const DailyQuestionCard = ({ profile, partner, questionDoc, dailyAnswers, date, isCreator: propIsCreator }) => {
+  const [newAnswer, setNewAnswer] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+  
+  const today = getTodayString();
+  const isToday = date === today;
+  
+  if (!questionDoc) {
+    return (
+      <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 md:p-8 border border-slate-200 dark:border-slate-700 mb-6 transition-all duration-300 shadow-sm relative overflow-hidden group">
+        <div className="flex items-center space-x-2 mb-6 text-slate-400">
+          <Clock className="w-4 h-4" />
+          <span className="text-[10px] font-bold uppercase tracking-widest leading-none">Pertanyaan Harian</span>
+        </div>
+        <div className="flex flex-col items-center justify-center py-6 text-center">
+          <p className="text-sm font-medium text-slate-500 italic">
+            {propIsCreator ? `Kamu belum membuat pertanyaan untuk ${partner?.displayName || 'dia'} hari ini.` : (partner?.displayName || 'Dia') + ' belum membuat pertanyaan untukmu hari ini.'}
+          </p>
+          {propIsCreator && (
+            <p className="text-[10px] text-indigo-500 font-bold uppercase mt-3">Buat di tab Tulis</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const isQuestionRevealed = (date < today) || (isToday && isAfter8PM());
+  const answerDoc = dailyAnswers.find(a => a.date === date && a.questionerId === questionDoc.creatorId);
+  const isAnswerRevealed = isAnswerRevealedForDate(date);
+  const isCreator = questionDoc.creatorId === profile.id;
+  const isAnswerer = answerDoc?.answererId === profile.id;
+  const yesterday = getYesterdayString();
+  const canAnswer = (date === today && isAfter8PM()) || (date === yesterday && !isAfter6AM());
+
+  const handlePostAnswer = async () => {
+    if (!newAnswer.trim()) return;
+    setIsSubmitting(true);
+    try {
+      const aId = `${profile.roomId}_${date}_${questionDoc.creatorId}`;
+      await setDoc(doc(db, getPublicPath('daily_question_answers'), aId), {
+        id: aId,
+        roomId: profile.roomId,
+        date: date,
+        questionId: questionDoc.id,
+        answer: newAnswer.trim(),
+        answererId: profile.id,
+        questionerId: questionDoc.creatorId,
+        createdAt: Date.now()
+      });
+      setNewAnswer("");
+      setIsEditMode(false);
+    } catch (e) {
+      console.error("Gagal menyimpan jawaban", e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteAnswer = async () => {
+    if (!window.confirm("Hapus jawaban ini?")) return;
+    setIsSubmitting(true);
+    try {
+      const aId = `${profile.roomId}_${date}_${questionDoc.creatorId}`;
+      await deleteDoc(doc(db, getPublicPath('daily_question_answers'), aId));
+    } catch (e) {
+      console.error("Gagal menghapus jawaban", e);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleReactAnswer = async (emoji) => {
+    if (!profile?.id || !answerDoc) return;
+    const currentUserId = profile.id;
+    const currentReactions = answerDoc.reactions || {};
+
+    const newReactions = { ...currentReactions };
+    const userReactions = Array.isArray(newReactions[currentUserId]) ? [...newReactions[currentUserId]] :
+      (typeof newReactions[currentUserId] === 'string' ? [newReactions[currentUserId]] : []);
+
+    if (userReactions.includes(emoji)) {
+      newReactions[currentUserId] = userReactions.filter(e => e !== emoji);
+    } else {
+      newReactions[currentUserId] = [...userReactions, emoji];
+    }
+
+    try {
+      await updateDoc(doc(db, getPublicPath('daily_question_answers'), answerDoc.id), {
+        reactions: newReactions
+      });
+    } catch (e) {
+      console.error("Gagal memberikan reaksi pada jawaban", e);
+    }
+  };
+
+  const myReactions = answerDoc?.reactions?.[profile?.id] || [];
+  const myReactionsArray = Array.isArray(myReactions) ? myReactions : (typeof myReactions === 'string' ? [myReactions] : []);
+
+  return (
+    <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-7 shadow-sm border border-slate-200 dark:border-slate-700 mb-6 transition-all duration-300 relative overflow-hidden group">
+      <div className="flex items-center space-x-2 mb-6 text-slate-400">
+        <Clock className="w-4 h-4" />
+        <span className="text-[10px] font-bold uppercase tracking-widest leading-none">
+          {isCreator ? `Pertanyaanku untuk ${partner?.displayName || 'dia'}` : `Pertanyaan ${partner?.displayName || 'dia'} untukku`}
+        </span>
+      </div>
+
+      {!isQuestionRevealed ? (
+         <div className="flex items-center space-x-3 text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+            <Lock className="w-4 h-4" />
+            <p className="text-sm font-medium italic">Pertanyaan akan muncul jam 20:00...</p>
+         </div>
+      ) : (
+        <div className="space-y-6">
+          <div>
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white leading-tight tracking-tight">
+              "{questionDoc.question}"
+            </h2>
+            <p className="text-[10px] text-slate-400 mt-3 uppercase font-bold tracking-tight">
+              Dari {isCreator ? 'Aku' : partner?.displayName || 'Dia'}
+            </p>
+          </div>
+
+          <div className="pt-6 border-t border-slate-50 dark:border-slate-700">
+            {answerDoc ? (
+              // Jika jawaban sudah ada
+              isAnswerRevealed || isAnswerer ? (
+                // Tampilkan jawaban jika sudah terungkap ATAU jika saya adalah penjawabnya
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-bold text-indigo-500 tracking-widest">Jawaban</span>
+                    {isAnswerer && canAnswer && (
+                      <div className="flex items-center space-x-1">
+                        <button 
+                          onClick={() => {
+                            setNewAnswer(answerDoc.answer);
+                            setIsEditMode(!isEditMode);
+                          }}
+                          className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                          title="Edit Jawaban"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
+                          onClick={handleDeleteAnswer}
+                          className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
+                          title="Hapus Jawaban"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {isEditMode ? (
+                    <div className="flex space-x-2">
+                      <input 
+                        type="text"
+                        value={newAnswer}
+                        onChange={(e) => setNewAnswer(e.target.value)}
+                        className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/30 transition-all text-slate-800 dark:text-slate-100"
+                      />
+                      <button 
+                        onClick={handlePostAnswer}
+                        disabled={isSubmitting || !newAnswer.trim() || newAnswer === answerDoc.answer}
+                        className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-500 dark:disabled:text-slate-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all"
+                      >
+                        {isSubmitting ? 'Menyimpan...' : 'Update'}
+                      </button>
+                      <button 
+                        onClick={() => setIsEditMode(false)}
+                        className="px-3 py-2 text-slate-400 hover:text-slate-600 font-bold text-sm"
+                      >
+                        Batal
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl p-6 border border-indigo-100/50 dark:border-indigo-900/20">
+                      <p className="text-slate-700 dark:text-slate-200 font-medium italic leading-relaxed">
+                        "{answerDoc.answer}"
+                      </p>
+                      <div className="flex items-center justify-between mt-3">
+                        <p className="text-[10px] text-indigo-500 dark:text-indigo-400 uppercase font-bold tracking-tight">
+                          — {isAnswerer ? 'Aku' : partner?.displayName || 'Dia'}
+                        </p>
+                        {!isAnswerRevealed && (
+                          <span className="text-[9px] text-amber-500 font-bold uppercase tracking-tighter bg-amber-50 px-2 py-1 rounded-md">Reveals at 06:00</span>
+                        )}
+                      </div>
+
+                      {/* Interaksi Reaksi Jawaban */}
+                      <div className="mt-4 flex items-center space-x-3 relative">
+                        <div className="relative">
+                          <button
+                            onClick={() => setShowPicker(!showPicker)}
+                            className={`w-7 h-7 flex items-center justify-center rounded-full transition-all duration-200 ${showPicker ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 scale-110' : 'text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30'}`}
+                            title="Berikan reaksi"
+                          >
+                            <Smile className="w-4 h-4" />
+                          </button>
+
+                          {showPicker && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-10"
+                                onClick={() => setShowPicker(false)}
+                              ></div>
+                              <div className="flex flex-wrap gap-1 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 absolute bottom-9 left-0 z-20 shadow-xl w-[220px] animate-in zoom-in duration-200 origin-bottom-left">
+                                {EMOJI_OPTIONS.map(emoji => (
+                                  <button
+                                    key={emoji}
+                                    onClick={() => {
+                                      handleReactAnswer(emoji);
+                                      setShowPicker(false);
+                                    }}
+                                    className={`w-8 h-8 flex items-center justify-center text-base rounded-full hover:bg-slate-50 dark:hover:bg-slate-700 transition-all ${myReactionsArray.includes(emoji) ? 'bg-indigo-50 dark:bg-indigo-900 ring-2 ring-indigo-200 dark:ring-indigo-800' : ''}`}
+                                  >
+                                    {emoji}
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {answerDoc.reactions && Object.keys(answerDoc.reactions).length > 0 && (
+                          <div className="flex flex-wrap gap-1 border-l border-slate-100 dark:border-slate-700 pl-3">
+                            {Object.values(answerDoc.reactions).flat().map((emoji, idx) => (
+                              <span key={idx} className="inline-flex items-center justify-center w-7 h-7 text-[12px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full shadow-sm select-none animate-in zoom-in duration-300">
+                                {emoji}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // Jawaban belum terungkap dan bukan saya yang jawab
+                <div className="flex items-center space-x-2 text-slate-400 italic text-sm">
+                  <Clock className="w-4 h-4" />
+                  <span>Jawaban terungkap jam 06:00 besok</span>
+                </div>
+              )
+            ) : (
+              // Jika jawaban blm ada
+              !isCreator ? (
+                // Jika saya bukan pembuat pertanyaan, saya bisa jawab
+                canAnswer ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">Berikan jawabanmu:</p>
+                    <div className="flex space-x-2">
+                      <input 
+                        type="text"
+                        value={newAnswer}
+                        onChange={(e) => setNewAnswer(e.target.value)}
+                        placeholder="Ketik jawaban..."
+                        className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/30 transition-all text-slate-800 dark:text-slate-100"
+                      />
+                      <button 
+                        onClick={handlePostAnswer}
+                        disabled={isSubmitting || !newAnswer.trim()}
+                        className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-500 dark:disabled:text-slate-600 text-white px-6 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 shadow-sm"
+                      >
+                        {isSubmitting ? 'Menyimpan...' : 'Jawab'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2 text-slate-400 italic text-sm">
+                    <Clock className="w-4 h-4" />
+                    <span>Waktu menjawab sudah habis (batas: 06:00 pagi)</span>
+                  </div>
+                )
+              ) : (
+                // Jika saya pembuat pertanyaan, saya menunggu jawaban
+                <div className="flex items-center space-x-2 text-slate-400 italic text-sm">
+                  <Clock className="w-4 h-4" />
+                  <span>Menunggu jawaban...</span>
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const NotPairedView = ({ onGoToSettings }) => (
   <div className="flex flex-col items-center justify-center h-[60vh] text-center px-4">
     <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mb-6 transition-colors">
       <Users className="w-10 h-10 text-indigo-400 dark:text-indigo-500" />
     </div>
-    <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-3 tracking-tight">Selamat datang di Simak</h2>
+    <h2 className="text-xl font-extrabold text-slate-900 dark:text-white mb-3 tracking-tight">Selamat datang di Simak</h2>
     <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-md font-medium">Simak adalah ruang pribadi untuk kita berdua. Hubungkan akun untuk mulai berbagi momen harian.</p>
     <button
       onClick={onGoToSettings}
@@ -799,7 +1339,7 @@ const NotPairedView = ({ onGoToSettings }) => (
 );
 
 // --- 1. Tampilan Jurnal ---
-const JournalView = ({ profile, partner, submissions, dailyRatings, onImageClick }) => {
+const JournalView = ({ profile, partner, submissions, dailyRatings, dailyQuestions, dailyAnswers, onImageClick }) => {
   const [activeTab, setActiveTab] = useState('jurnalku'); // State untuk tab
   const [selectedDate, setSelectedDate] = useState(getTodayString()); // State untuk filter tanggal
 
@@ -835,7 +1375,7 @@ const JournalView = ({ profile, partner, submissions, dailyRatings, onImageClick
       </div>
 
       {/* Switcher Tab */}
-      <div className="flex p-1 bg-slate-200/50 dark:bg-slate-800/50 rounded-2xl w-full max-w-sm mx-auto mb-10 relative border border-white/50 dark:border-slate-700/50 backdrop-blur-sm transition-colors">
+      <div className="flex p-1 bg-slate-200/50 dark:bg-slate-800/50 rounded-xl w-full max-w-sm mx-auto mb-10 relative border border-white/50 dark:border-slate-700/50 backdrop-blur-sm transition-colors">
         <button
           onClick={() => setActiveTab('jurnalku')}
           className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all duration-300 ${activeTab === 'jurnalku' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
@@ -857,13 +1397,15 @@ const JournalView = ({ profile, partner, submissions, dailyRatings, onImageClick
         partner={partner}
         activeTab={activeTab}
         dailyRatings={dailyRatings}
+        dailyQuestions={dailyQuestions}
+        dailyAnswers={dailyAnswers}
         onImageClick={onImageClick}
       />
     </div>
   );
 };
 
-const DailySection = ({ date, subs, profile, partner, activeTab, dailyRatings, onImageClick }) => {
+const DailySection = ({ date, subs, profile, partner, activeTab, dailyRatings, dailyQuestions, dailyAnswers, onImageClick }) => {
   const isToday = date === getTodayString();
   const revealed = !isToday || isAfter8PM();
 
@@ -875,9 +1417,36 @@ const DailySection = ({ date, subs, profile, partner, activeTab, dailyRatings, o
       <div className="flex flex-col space-y-10">
         {activeTab === 'jurnalmu' && (
           partner ? (
-            <UserJournalFeed user={partner} subs={partnerSubs} isMe={false} isHidden={!revealed} date={date} dailyRatings={dailyRatings} onImageClick={onImageClick} />
+            <div className="space-y-8">
+              {(() => {
+                const qs = dailyQuestions.filter(q => q.date === date && q.creatorId === profile.id);
+                if (qs.length === 0) {
+                  return (
+                    <DailyQuestionCard 
+                      profile={profile} 
+                      partner={partner} 
+                      questionDoc={null} 
+                      dailyAnswers={dailyAnswers} 
+                      date={date} 
+                      isCreator={true}
+                    />
+                  );
+                }
+                return qs.map(q => (
+                  <DailyQuestionCard 
+                    key={q.id || q.creatorId}
+                    profile={profile} 
+                    partner={partner} 
+                    questionDoc={q} 
+                    dailyAnswers={dailyAnswers} 
+                    date={date} 
+                  />
+                ));
+              })()}
+              <UserJournalFeed user={partner} subs={partnerSubs} isMe={false} isHidden={!revealed} date={date} dailyRatings={dailyRatings} onImageClick={onImageClick} />
+            </div>
           ) : (
-            <div className="bg-slate-50 dark:bg-slate-800 rounded-[32px] p-8 border border-slate-200 dark:border-slate-700 text-center transition-colors">
+            <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-8 border border-slate-200 dark:border-slate-700 text-center transition-colors">
               <UserPlus className="w-8 h-8 text-slate-400 dark:text-slate-500 mx-auto mb-3" />
               <p className="text-slate-600 dark:text-slate-300">Kamu belum terhubung denganku.</p>
             </div>
@@ -885,7 +1454,34 @@ const DailySection = ({ date, subs, profile, partner, activeTab, dailyRatings, o
         )}
 
         {activeTab === 'jurnalku' && (
-          <UserJournalFeed user={profile} subs={mySubs} isMe={true} isHidden={false} date={date} dailyRatings={dailyRatings} onImageClick={onImageClick} />
+          <div className="space-y-8">
+            {(() => {
+                const qs = dailyQuestions.filter(q => q.date === date && q.creatorId === (partner?.id || 'none'));
+                if (qs.length === 0) {
+                  return (
+                    <DailyQuestionCard 
+                      profile={profile} 
+                      partner={partner} 
+                      questionDoc={null} 
+                      dailyAnswers={dailyAnswers} 
+                      date={date} 
+                      isCreator={false}
+                    />
+                  );
+                }
+                return qs.map(q => (
+                  <DailyQuestionCard 
+                    key={q.id || q.creatorId}
+                    profile={profile} 
+                    partner={partner} 
+                    questionDoc={q} 
+                    dailyAnswers={dailyAnswers} 
+                    date={date} 
+                  />
+                ));
+              })()}
+            <UserJournalFeed user={profile} subs={mySubs} isMe={true} isHidden={false} date={date} dailyRatings={dailyRatings} onImageClick={onImageClick} />
+          </div>
         )}
       </div>
     </div>
@@ -928,7 +1524,7 @@ const UserJournalFeed = ({ user, subs, isMe, isHidden, date, dailyRatings, onIma
 
   if (isHidden) {
     return (
-      <div className="bg-slate-100/50 dark:bg-slate-800/50 rounded-[32px] p-8 border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center min-h-[200px] text-center transition-colors">
+      <div className="bg-slate-100/50 dark:bg-slate-800/50 rounded-2xl p-8 border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center min-h-[200px] text-center transition-colors">
         <Lock className="w-8 h-8 mb-4 text-slate-500 dark:text-slate-400" />
         <p className="text-slate-600 dark:text-slate-200 font-medium text-lg">Jurnal {user?.displayName} terkunci</p>
         <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Akan terungkap pada pukul 20:00</p>
@@ -937,11 +1533,11 @@ const UserJournalFeed = ({ user, subs, isMe, isHidden, date, dailyRatings, onIma
   }
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-[32px] p-6 md:p-10 shadow-sm border border-slate-200 dark:border-slate-700 transition-colors">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 md:p-7 shadow-sm border border-slate-200 dark:border-slate-700 transition-colors">
       <div className="flex items-center space-x-4 mb-10 border-b border-slate-100 dark:border-slate-700 pb-6">
         <img src={user?.photoURL || DEFAULT_AVATAR(user?.id)} alt={user?.displayName} className="w-14 h-14 rounded-full shadow-sm" />
         <div>
-          <h4 className="text-xl font-bold text-slate-800 dark:text-slate-100">{user?.displayName}</h4>
+          <h4 className="text-lg font-bold text-slate-800 dark:text-slate-100">{user?.displayName}</h4>
           <p className="text-sm font-semibold text-slate-600 dark:text-slate-400 mt-1">{isMe ? 'Jurnalku' : 'Jurnalmu'}</p>
         </div>
         {userRating && (
@@ -972,8 +1568,8 @@ const UserJournalFeed = ({ user, subs, isMe, isHidden, date, dailyRatings, onIma
               {showRatingPicker && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowRatingPicker(false)}></div>
-                  <div className="flex flex-wrap gap-1 bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 absolute top-10 right-0 z-20 shadow-xl w-[200px] animate-in zoom-in duration-200 origin-top-right">
-                    {EMOJI_OPTIONS.slice(0, 12).map(emoji => ( // Ambil lebih banyak biar variatif
+                  <div className="flex flex-wrap gap-1 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 absolute top-10 right-0 z-20 shadow-xl w-[200px] animate-in zoom-in duration-200 origin-top-right">
+                    {EMOJI_OPTIONS.map(emoji => ( // Tampilkan semua 30 emoji agar konsisten
                       <button
                         key={emoji}
                         onClick={() => {
@@ -991,10 +1587,10 @@ const UserJournalFeed = ({ user, subs, isMe, isHidden, date, dailyRatings, onIma
             </div>
 
             {/* Badge Rating */}
-            <div className="flex flex-col items-center justify-center bg-indigo-50 dark:bg-indigo-900/40 px-5 py-2.5 rounded-2xl border border-indigo-100 dark:border-indigo-800 transition-colors order-3">
+            <div className="flex flex-col items-center justify-center bg-indigo-50 dark:bg-indigo-900/40 px-5 py-2.5 rounded-xl border border-indigo-100 dark:border-indigo-800 transition-colors order-3">
               <span className="text-[10px] uppercase font-bold text-indigo-500 dark:text-indigo-400 tracking-widest mb-0.5">Rating</span>
               <div className="flex items-baseline">
-                <span className="text-2xl font-black text-indigo-700 dark:text-indigo-300 leading-none">{userRating}</span>
+                <span className="text-xl font-black text-indigo-700 dark:text-indigo-300 leading-none">{userRating}</span>
                 <span className="text-xs font-bold text-indigo-400 dark:text-indigo-500 ml-1">/10</span>
               </div>
             </div>
@@ -1062,10 +1658,10 @@ const FeedItem = ({ sub, user, isMe, isLast, onImageClick }) => {
       {/* Konten Timeline */}
       <div>
 
-        <div className="bg-[#f8fafc] dark:bg-slate-900/50 rounded-3xl p-5 md:p-6 border border-slate-100 dark:border-slate-800 transition-colors">
+        <div className="bg-[#f8fafc] dark:bg-slate-900/50 rounded-2xl p-5 md:p-6 border border-slate-100 dark:border-slate-800 transition-colors">
           {sub.imageUrl && (
             <div 
-              className="mb-4 rounded-2xl overflow-hidden bg-slate-200 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 cursor-pointer hover:ring-2 ring-indigo-500/50 transition-all"
+              className="mb-4 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 cursor-pointer hover:ring-2 ring-indigo-500/50 transition-all"
               onClick={() => onImageClick(sub.imageUrl)}
             >
               <img src={sub.imageUrl} alt="Momen" className="w-full object-cover max-h-96 hover:scale-105 transition-transform duration-500" loading="lazy" />
@@ -1090,7 +1686,7 @@ const FeedItem = ({ sub, user, isMe, isLast, onImageClick }) => {
                     className="fixed inset-0 z-10"
                     onClick={() => setShowPicker(false)}
                   ></div>
-                  <div className="flex flex-wrap gap-1 bg-white dark:bg-slate-800 p-2 rounded-2xl border border-slate-200 dark:border-slate-700 absolute bottom-10 left-0 z-20 shadow-xl w-[220px] animate-in zoom-in duration-200 origin-bottom-left">
+                  <div className="flex flex-wrap gap-1 bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200 dark:border-slate-700 absolute bottom-10 left-0 z-20 shadow-xl w-[220px] animate-in zoom-in duration-200 origin-bottom-left">
                     {EMOJI_OPTIONS.map(emoji => (
                       <button
                         key={emoji}
@@ -1126,7 +1722,7 @@ const FeedItem = ({ sub, user, isMe, isLast, onImageClick }) => {
 
 
 // --- 2. Tampilan Tulis ---
-const WriteView = ({ profile, submissions, dailyRatings, onImageClick }) => {
+const WriteView = ({ profile, partner, submissions, dailyRatings, dailyQuestions, dailyAnswers, onImageClick }) => {
   const [content, setContent] = useState("");
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1215,18 +1811,30 @@ const WriteView = ({ profile, submissions, dailyRatings, onImageClick }) => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in duration-300 pb-10">
+    <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-300 pb-10">
+      <div className="mb-5">
+        <h1 className="text-sm font-black text-slate-800 dark:text-white tracking-tight">Tulis Cerita</h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Abadikan momen berhargamu hari ini.</p>
+      </div>
+
+      <DailyQuestionSection 
+        profile={profile} 
+        partner={partner} 
+        dailyQuestions={dailyQuestions} 
+        dailyAnswers={dailyAnswers} 
+        date={today} 
+      />
 
 
 
       {/* Area Menulis */}
-      <div className="bg-white dark:bg-slate-800 rounded-[24px] shadow-sm border border-slate-100 dark:border-slate-700 p-6 transition-colors duration-300">
-        <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white mb-6 tracking-tight">Apa cerita hari ini?</h2>
+      <div className="bg-white dark:bg-slate-800 rounded-[24px] shadow-sm border border-slate-100 dark:border-slate-700 p-5 transition-colors duration-300">
+        <h2 className="text-lg font-extrabold text-slate-900 dark:text-white mb-5 tracking-tight">Apa cerita hari ini?</h2>
 
 
 
         {isLocked ? (
-          <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/50 rounded-2xl p-6 text-center transition-colors">
+          <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/50 rounded-xl p-6 text-center transition-colors">
             <Lock className="w-8 h-8 text-indigo-500 dark:text-indigo-400 mx-auto mb-3" />
             <h3 className="text-indigo-900 dark:text-indigo-100 font-bold">Hari ini telah terkunci.</h3>
             <p className="text-indigo-700 dark:text-indigo-300 font-medium text-sm mt-1">Jurnal kita berdua sudah bisa dibaca. Sampai jumpa besok!</p>
@@ -1499,7 +2107,7 @@ const SettingsView = ({ profile, partner }) => {
       const foundPartner = { id: foundPartnerDoc.id, ...foundPartnerDoc.data() };
 
       if (foundPartner.id === profile.id) {
-        setJoinError("Ini adalah kode Anda sendiri. Bagikan kode ini ke pasangan Anda.");
+        setJoinError(`Ini adalah kode Kamu sendiri. Bagikan kode ini ke ${partner?.displayName || 'dia'}.`);
         setIsJoining(false);
         return;
       }
@@ -1554,11 +2162,11 @@ const SettingsView = ({ profile, partner }) => {
   };
 
   return (
-    <div className="max-w-xl mx-auto space-y-8 animate-in fade-in duration-300">
+    <div className="max-w-lg mx-auto space-y-6 animate-in fade-in duration-300">
 
       {/* Bagian Profil */}
-      <div className="bg-white dark:bg-slate-800 rounded-[24px] shadow-sm border border-slate-100 dark:border-slate-700 p-8 transition-colors duration-300">
-        <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white mb-8 tracking-tight">Profil</h2>
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 p-6 transition-colors duration-300">
+        <h2 className="text-lg font-extrabold text-slate-900 dark:text-white mb-6 tracking-tight">Profil</h2>
         <div className="flex items-center space-x-6">
           <img
             src={profile?.photoURL || DEFAULT_AVATAR(profile?.id)}
@@ -1594,7 +2202,7 @@ const SettingsView = ({ profile, partner }) => {
               </div>
             ) : (
               <div className="flex items-center space-x-3">
-                <h3 className="text-xl font-bold text-slate-800 dark:text-white">{profile?.displayName || "Tanpa Nama"}</h3>
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white">{profile?.displayName || "Tanpa Nama"}</h3>
                 <button
                   onClick={() => setIsEditingName(true)}
                   className="text-slate-400 hover:text-indigo-500 transition-colors p-1"
@@ -1638,7 +2246,7 @@ const SettingsView = ({ profile, partner }) => {
                 key={idx}
                 onClick={() => handleUpdateAvatar(url)}
                 disabled={isSavingAvatar}
-                className={`relative group rounded-2xl overflow-hidden border-2 transition-all p-1 ${profile?.photoURL === url ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/40' : 'border-transparent hover:border-slate-200 dark:hover:border-slate-600'}`}
+                className={`relative group rounded-xl overflow-hidden border-2 transition-all p-1 ${profile?.photoURL === url ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/40' : 'border-transparent hover:border-slate-200 dark:hover:border-slate-600'}`}
               >
                 <img src={url} alt={`Avatar ${idx}`} className="w-full aspect-square rounded-xl object-cover" />
                 {profile?.photoURL === url && (
@@ -1662,19 +2270,19 @@ const SettingsView = ({ profile, partner }) => {
 
       {/* Bagian Penghubungan */}
       <div className="bg-white dark:bg-slate-800 rounded-[24px] shadow-sm border border-slate-100 dark:border-slate-700 p-8 transition-colors duration-300">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-6 flex items-center tracking-tight">
+        <h2 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center tracking-tight">
           <Users className="w-5 h-5 mr-2 text-indigo-500 dark:text-indigo-400" /> Koneksi Kita
         </h2>
 
         {profile?.roomId ? (
           partner ? (
-            <div className="bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/50 rounded-2xl p-6 transition-colors">
+            <div className="bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/50 rounded-xl p-6 transition-colors">
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm font-bold text-indigo-900 dark:text-indigo-200">Terhubung dengan</span>
                 <span className="px-2 py-1 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 text-xs font-bold rounded-md">Terhubung</span>
               </div>
               <div className="flex items-center space-x-4 mb-6">
-                <img src={partner.photoURL || DEFAULT_AVATAR(partner.id)} alt="Pasangan" className="w-14 h-14 rounded-full border-2 border-white dark:border-slate-700 shadow-sm" />
+                <img src={partner.photoURL || DEFAULT_AVATAR(partner.id)} alt={partner?.displayName || 'Dia'} className="w-14 h-14 rounded-full border-2 border-white dark:border-slate-700 shadow-sm" />
                 <div>
                   <p className="font-bold text-slate-800 dark:text-white text-lg leading-tight">{partner.displayName}</p>
                   <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 font-medium">Ruangan bersama aktif</p>
@@ -1698,7 +2306,7 @@ const SettingsView = ({ profile, partner }) => {
               )}
             </div>
           ) : (
-            <div className="bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/50 rounded-2xl p-6 transition-colors">
+            <div className="bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/50 rounded-xl p-6 transition-colors">
               <p className="text-sm font-bold text-indigo-900 dark:text-indigo-200">Menyiapkan ruangan...</p>
             </div>
           )
@@ -1706,7 +2314,7 @@ const SettingsView = ({ profile, partner }) => {
           <div className="space-y-8">
 
             {/* Buat Kode */}
-            <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700 rounded-2xl p-6 transition-colors">
+            <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700 rounded-xl p-6 transition-colors">
               <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-2">Undang Kamu</h3>
               <p className="text-xs text-slate-600 dark:text-slate-400 mb-4 font-medium">Buat kode untuk kubagikan denganmu.</p>
 
@@ -1785,17 +2393,17 @@ const LoginScreen = ({ onLoginGoogle }) => (
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-indigo-400 dark:via-indigo-500 to-transparent opacity-30"></div>
 
         <div className="relative mb-10">
-          <div className="w-20 h-20 bg-gradient-to-br from-indigo-600 to-indigo-700 dark:from-indigo-500 dark:to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-[0_10px_20px_rgba(79,70,229,0.3)] dark:shadow-none rotate-3 hover:rotate-0 transition-transform duration-500">
+          <div className="w-20 h-20 bg-gradient-to-br from-indigo-600 to-indigo-700 dark:from-indigo-500 dark:to-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-8 shadow-[0_10px_20px_rgba(79,70,229,0.3)] dark:shadow-none rotate-3 hover:rotate-0 transition-transform duration-500">
             <span className="text-white font-bold text-4xl">s</span>
           </div>
-          <h1 className="text-4xl font-extrabold text-slate-900 dark:text-white mb-3 tracking-tighter">SIMAK<span className="text-indigo-600 dark:text-indigo-500">.</span></h1>
+          <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-3 tracking-tighter">SIMAK<span className="text-indigo-600 dark:text-indigo-500">.</span></h1>
           <p className="text-slate-600 dark:text-slate-400 text-sm">Simak hidupmu dari jauh</p>
         </div>
 
         <div className="space-y-6">
           <button
             onClick={onLoginGoogle}
-            className="group w-full flex items-center justify-center space-x-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-4 rounded-2xl hover:bg-slate-800 dark:hover:bg-slate-100 transition-all duration-300 shadow-lg shadow-slate-200 dark:shadow-none hover:-translate-y-0.5 active:scale-[0.98]"
+            className="group w-full flex items-center justify-center space-x-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-4 rounded-xl hover:bg-slate-800 dark:hover:bg-slate-100 transition-all duration-300 shadow-lg shadow-slate-200 dark:shadow-none hover:-translate-y-0.5 active:scale-[0.98]"
           >
             <div className="bg-white dark:bg-slate-100 p-1 rounded-lg">
               <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
