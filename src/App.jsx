@@ -93,7 +93,7 @@ const ADVENTURER_AVATARS = [
   'https://api.dicebear.com/9.x/adventurer/svg?seed=Max&backgroundColor=c0aede',
   'https://api.dicebear.com/9.x/adventurer/svg?seed=Ruby&backgroundColor=ffd5dc'
 ];
-const EMOJI_OPTIONS = ['❤️', '🥰', '✨', '🙌', '🔥', '😄', '😂', '🤣', '😮', '😱', '😲', '🤯', '😢', '😭', '😔', '🫠', '🥹', '😴', '👍', '🙏', '🎉', '😡', '🫡', '👀', '💀', '💯', '🥺', '🤩', '🤝', '🫂']
+const EMOJI_OPTIONS = ['❤️', '🥰', '✨', '🙌', '🔥', '😄', '😂', '🤣', '😮', '😱', '😲', '🤯', '😢', '😭', '😔', '🫠', '🥹', '😴', '👍', '🙏', '🎉', '😡', '🫡', '👀', '💀', '💯', '😋', '🤩', '🤝', '🫂', '😊']
 
 let app, auth, db;
 
@@ -127,9 +127,14 @@ const getTodayString = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-const isAfter8PM = () => {
+const getRevealHour = () => {
   const now = new Date();
-  return now.getHours() >= 20;
+  return now.getDay() === 6 ? 17 : 20;
+};
+
+const isRevealTime = () => {
+  const now = new Date();
+  return now.getHours() >= getRevealHour();
 };
 
 const isAfter6AM = () => {
@@ -153,18 +158,19 @@ const TimeUnit = ({ value, label }) => (
 
 const CountdownTimer = ({ compact = false }) => {
   const [timeLeft, setTimeLeft] = useState({ h: '00', m: '00', s: '00' });
-  const [isRevealed, setIsRevealed] = useState(isAfter8PM());
+  const [isRevealed, setIsRevealed] = useState(isRevealTime());
 
   useEffect(() => {
     const updateTimer = () => {
       const now = new Date();
       const target = new Date();
-      target.setHours(20, 0, 0, 0);
+      const revealHour = getRevealHour();
+      target.setHours(revealHour, 0, 0, 0);
       
-      const after8 = now.getHours() >= 20;
-      setIsRevealed(after8);
+      const isAfter = now.getHours() >= revealHour;
+      setIsRevealed(isAfter);
 
-      if (after8) {
+      if (isAfter) {
         setTimeLeft({ h: '00', m: '00', s: '00' });
         return;
       }
@@ -851,7 +857,7 @@ const DailyQuestionSection = ({ profile, partner, dailyQuestions, dailyAnswers, 
   const questionDoc = dailyQuestions.find(q => q.date === date && q.creatorId === profile.id);
   const answerDoc = dailyAnswers.find(a => a.date === date);
 
-  const isQuestionRevealed = (date < today) || (isToday && isAfter8PM());
+  const isQuestionRevealed = (date < today) || (isToday && isRevealTime());
   const isCreator = true;
 
   const handlePostQuestion = async () => {
@@ -893,8 +899,8 @@ const DailyQuestionSection = ({ profile, partner, dailyQuestions, dailyAnswers, 
   if (!questionDoc) {
     // Bisa buat pertanyaan jika:
     // - selectedDate adalah hari esok atau nanti
-    // - selectedDate adalah hari ini DAN belum jam 8 malam
-    const canCreate = (date > today) || (isToday && !isAfter8PM());
+    // - selectedDate adalah hari ini DAN belum jam reveal
+    const canCreate = (date > today) || (isToday && !isRevealTime());
     
     if (!canCreate) {
       if (isToday) {
@@ -902,7 +908,7 @@ const DailyQuestionSection = ({ profile, partner, dailyQuestions, dailyAnswers, 
           <div className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-8 border border-dashed border-slate-300 dark:border-slate-700 text-center mb-10 transition-colors">
             <Lock className="w-8 h-8 text-slate-400 mx-auto mb-3" />
             <h3 className="font-bold text-slate-800 dark:text-slate-100">Waktu Terlewat</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium">Batas pembuatan pertanyaan hari ini (jam 20:00) sudah lewat. Coba pilih tanggal besok!</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium">Batas pembuatan pertanyaan hari ini (jam {getRevealHour()}:00) sudah lewat. Coba pilih tanggal besok!</p>
           </div>
         );
       }
@@ -917,7 +923,7 @@ const DailyQuestionSection = ({ profile, partner, dailyQuestions, dailyAnswers, 
           </div>
           <h3 className="font-bold text-lg text-slate-800 dark:text-slate-100">Buat Pertanyaan untuk {partner?.displayName || 'dia'} {isToday ? '' : `pada ${date}`}</h3>
         </div>
-        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 font-medium">Berikan satu pertanyaan untuk dijawab {partner?.displayName || 'dia'} hari ini. Akan terungkap jam 20:00.</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 font-medium">Berikan satu pertanyaan untuk dijawab {partner?.displayName || 'dia'} hari ini. Akan terungkap jam {getRevealHour()}:00.</p>
         <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-2">
           <input 
             type="text"
@@ -999,9 +1005,9 @@ const DailyQuestionSection = ({ profile, partner, dailyQuestions, dailyAnswers, 
         ) : (
           <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-4 border border-slate-100 dark:border-slate-800">
             <p className="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed italic">
-              {isCreator ? `"${questionDoc.question}"` : `${partner?.displayName || 'Dia'} sudah menyiapkan pertanyaan. Tunggu jam 20:00 ya!`}
+              {isCreator ? `"${questionDoc.question}"` : `${partner?.displayName || 'Dia'} sudah menyiapkan pertanyaan. Tunggu jam ${getRevealHour()}:00 ya!`}
             </p>
-            {isCreator && !isEditMode && <p className="text-[10px] text-slate-400 mt-2 uppercase font-bold tracking-tight">Muncul jam 20:00</p>}
+            {isCreator && !isEditMode && <p className="text-[10px] text-slate-400 mt-2 uppercase font-bold tracking-tight">Muncul jam {getRevealHour()}:00</p>}
           </div>
         )}
       </div>
@@ -1016,7 +1022,7 @@ const DailyQuestionSection = ({ profile, partner, dailyQuestions, dailyAnswers, 
           <span className="text-[10px] uppercase font-black text-indigo-500 tracking-widest mb-1 block leading-none">Status Pertanyaan</span>
           <h2 className="text-lg font-black text-slate-800 dark:text-white leading-tight">"{questionDoc.question}"</h2>
           <div className="flex items-center mt-2 text-[10px] text-slate-400 font-bold uppercase tracking-tight">
-            <span>Terungkap (Jam 20:00)</span>
+            <span>Terungkap (Jam {getRevealHour()}:00)</span>
           </div>
         </div>
         <div className="pt-4 border-t border-slate-50 dark:border-slate-700">
@@ -1057,13 +1063,13 @@ const DailyQuestionCard = ({ profile, partner, questionDoc, dailyAnswers, date, 
     );
   }
 
-  const isQuestionRevealed = (date < today) || (isToday && isAfter8PM());
+  const isQuestionRevealed = (date < today) || (isToday && isRevealTime());
   const answerDoc = dailyAnswers.find(a => a.date === date && a.questionerId === questionDoc.creatorId);
   const isAnswerRevealed = isAnswerRevealedForDate(date);
   const isCreator = questionDoc.creatorId === profile.id;
   const isAnswerer = answerDoc?.answererId === profile.id;
   const yesterday = getYesterdayString();
-  const canAnswer = (date === today && isAfter8PM()) || (date === yesterday && !isAfter6AM());
+  const canAnswer = (date === today && isRevealTime()) || (date === yesterday && !isAfter6AM());
 
   const handlePostAnswer = async () => {
     if (!newAnswer.trim()) return;
@@ -1141,7 +1147,7 @@ const DailyQuestionCard = ({ profile, partner, questionDoc, dailyAnswers, date, 
       {!isQuestionRevealed ? (
          <div className="flex items-center space-x-3 text-slate-400 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
             <Lock className="w-4 h-4" />
-            <p className="text-sm font-medium italic">Pertanyaan akan muncul jam 20:00...</p>
+            <p className="text-sm font-medium italic">Pertanyaan akan muncul jam {getRevealHour()}:00...</p>
          </div>
       ) : (
         <div className="space-y-6">
@@ -1407,7 +1413,7 @@ const JournalView = ({ profile, partner, submissions, dailyRatings, dailyQuestio
 
 const DailySection = ({ date, subs, profile, partner, activeTab, dailyRatings, dailyQuestions, dailyAnswers, onImageClick }) => {
   const isToday = date === getTodayString();
-  const revealed = !isToday || isAfter8PM();
+  const revealed = !isToday || isRevealTime();
 
   const mySubs = subs.filter(s => s.userId === profile.id);
   const partnerSubs = subs.filter(s => s.userId === partner?.id);
@@ -1527,7 +1533,7 @@ const UserJournalFeed = ({ user, subs, isMe, isHidden, date, dailyRatings, onIma
       <div className="bg-slate-100/50 dark:bg-slate-800/50 rounded-2xl p-8 border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center min-h-[200px] text-center transition-colors">
         <Lock className="w-8 h-8 mb-4 text-slate-500 dark:text-slate-400" />
         <p className="text-slate-600 dark:text-slate-200 font-medium text-lg">Jurnal {user?.displayName} terkunci</p>
-        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Akan terungkap pada pukul 20:00</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Akan terungkap pada pukul {getRevealHour()}:00</p>
       </div>
     );
   }
@@ -1728,7 +1734,7 @@ const WriteView = ({ profile, partner, submissions, dailyRatings, dailyQuestions
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
-  const isLocked = isAfter8PM();
+  const isLocked = isRevealTime();
   const today = getTodayString();
   const myTodaySubs = submissions.filter(s => s.userId === profile.id && s.date === today);
   const myRating = dailyRatings.find(r => r.userId === profile.id && r.date === today)?.rating;
